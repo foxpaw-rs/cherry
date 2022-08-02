@@ -52,6 +52,9 @@ use crate::error::{self, Error};
 pub struct Action {
     /// The keyword to invoke this Action.
     pub keyword: String,
+
+    /// The description for this Action.
+    pub description: Option<String>,
 }
 
 impl Action {
@@ -61,9 +64,12 @@ impl Action {
     ///
     /// # Examples
     /// ```rust
-    /// use cherry::Action;
+    /// use cherry::{self, Action};
     ///
-    /// let action = Action::new("my_action");
+    /// fn create_action() -> cherry::Result<()> {
+    ///     let action = Action::new("my_action")?;
+    ///     Ok(())
+    /// }
     /// ```
     pub fn new(keyword: &str) -> error::Result<Action> {
         if keyword.is_empty() {
@@ -72,7 +78,29 @@ impl Action {
 
         Ok(Action {
             keyword: String::from(keyword),
+            description: None,
         })
+    }
+
+    /// Update the description.
+    ///
+    /// The description of the Action is used by the help text to assist users of
+    /// the application to understand it. A good description text allows users to
+    /// effectively use the application.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Action;
+    ///
+    /// fn create_action() -> cherry::Result<()> {
+    ///     let action = Action::new("my_action")?
+    ///        .description("The action description");
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn description(mut self, description: &str) -> Action {
+        self.description = Some(String::from(description));
+        self
     }
 }
 
@@ -89,6 +117,7 @@ mod tests {
     fn action_new() {
         let expected = Action {
             keyword: String::from("my_action"),
+            description: None,
         };
         let actual = Action::new("my_action").unwrap();
 
@@ -105,5 +134,22 @@ mod tests {
         let actual = Action::new("");
 
         assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Action::description must correctly set the description.
+    ///
+    /// The description method must correctly set the internal Action description
+    /// to the provided text.
+    #[test]
+    fn action_description() {
+        let expected = Action {
+            keyword: String::from("my_action"),
+            description: Some(String::from("My description.")),
+        };
+        let actual = Action::new("my_action")
+            .unwrap()
+            .description("My description.");
+
+        assert_eq!(expected, actual);
     }
 }

@@ -27,10 +27,10 @@ use std::collections::HashMap;
 /// ```rust
 /// use cherry::{self, Action, Cherry};
 ///
-/// fn init_cherry() -> cherry::Result<()> {
-///     let mut cherry = Cherry::new();
-///     cherry.insert(Action::new("my_action")?);
-///     Ok(())
+/// fn init_cherry() -> cherry::Result<Cherry> {
+///     let cherry = Cherry::new()
+///         .insert(Action::new("my_action")?)?;
+///     Ok(cherry)
 /// }
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -56,27 +56,27 @@ impl Cherry {
         }
     }
 
-    /// Insert onto the Cherry runner.
+    /// Insert onto the Cherry object.
     ///
-    /// Insert an Action onto the Cherry runner.
+    /// Insert an Action onto the Cherry object.
     ///
     /// # Example
     /// ```rust
     /// use cherry::{self, Action, Cherry};
     ///
-    /// fn init_cherry() -> cherry::Result<()> {
-    ///     let mut cherry = Cherry::new();
-    ///     cherry.insert(Action::new("my_action")?);
-    ///     Ok(())
+    /// fn init_cherry() -> cherry::Result<Cherry> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(Action::new("my_action")?)?;
+    ///     Ok(cherry)
     /// }
     /// ```
-    pub fn insert(&mut self, action: Action) -> Result<()> {
+    pub fn insert(mut self, action: Action) -> Result<Cherry> {
         if action.keyword.is_empty() {
             return Err(Error::new("Action must have a non-empty keyword."));
         }
 
         self.actions.insert(action.keyword.clone(), action);
-        Ok(())
+        Ok(self)
     }
 }
 
@@ -138,8 +138,9 @@ mod tests {
         map.insert(String::from("my_action"), Action::new("my_action").unwrap());
         let expected = Cherry { actions: map };
 
-        let mut actual = Cherry::new();
-        actual.insert(Action::new("my_action").unwrap()).unwrap();
+        let actual = Cherry::new()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -152,9 +153,10 @@ mod tests {
     fn cherry_insert_empty() {
         let expected = Error::new("Action must have a non-empty keyword.");
 
-        let mut cherry = Cherry::new();
+        let cherry = Cherry::new();
         let actual = cherry.insert(Action {
             keyword: String::from(""),
+            description: None,
         });
 
         assert_eq!(expected, actual.unwrap_err());
