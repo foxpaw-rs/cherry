@@ -12,7 +12,7 @@ use crate::error::{self, Error};
 /// defined and inserted into the Cherry CLI runner as a base Action, or
 /// inserted into another Action as a child Action. Actions can be abstract,
 /// wherein the action is simply a parent Action that houses child Actions.
-/// In this instance, simply do not define an execute method.
+/// In this instance, simply do not define an callback method.
 ///
 /// Actions house three types of data:
 ///
@@ -65,9 +65,9 @@ impl Action {
     ///
     /// # Examples
     /// ```rust
-    /// use cherry::{self, Action};
+    /// use cherry::Action;
     ///
-    /// fn create_action() -> cherry::Result<()> {
+    /// fn main() -> cherry::Result<()> {
     ///     let action = Action::new("my_action")?;
     ///     Ok(())
     /// }
@@ -97,7 +97,7 @@ impl Action {
     /// ```rust
     /// use cherry::Action;
     ///
-    /// fn create_action() -> cherry::Result<()> {
+    /// fn main() -> cherry::Result<()> {
     ///     let action = Action::new("my_action")?
     ///        .description("The action description");
     ///     Ok(())
@@ -106,6 +106,43 @@ impl Action {
     pub fn description(mut self, description: &str) -> Action {
         self.description = Some(String::from(description));
         self
+    }
+}
+
+/// Request.
+///
+/// Requests are the data structure loaded from a Cherry instance. Requests
+/// hold the loaded data and are linked to the Action the application loaded
+/// from. Typical interaction with Requests is to retrieve them from the Cherry
+/// instance through loading, before running the Action's callback method.
+///
+/// # Example: Running a loaded request.
+/// ```rust
+/// // Todo(Paul): When actions have a callback.
+/// ```
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Request<'a> {
+    /// The Action this Request is bound to.
+    action: &'a Action,
+}
+
+impl<'a> Request<'a> {
+    /// Create a new Request.
+    ///
+    /// Create a new Request instance.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Request};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::new("my_action")?;
+    ///     let cherry = Request::new(&action);
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn new(action: &'a Action) -> Self {
+        Self { action }
     }
 }
 
@@ -154,6 +191,19 @@ mod tests {
         let actual = Action::new("my_action")
             .unwrap()
             .description("My description.");
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::new must create as per struct initialisation.
+    ///
+    /// The new method on Request must create an object as per the struct
+    /// initialiser syntax.
+    #[test]
+    fn request_new() {
+        let action = Action::new("my_action").unwrap();
+        let expected = Request { action: &action };
+        let actual = Request::new(&action);
 
         assert_eq!(expected, actual);
     }

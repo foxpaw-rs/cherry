@@ -12,7 +12,7 @@
 pub mod action;
 pub mod error;
 
-pub use action::Action;
+pub use action::{Action, Request};
 pub use error::{Error, Result};
 use std::collections::HashMap;
 
@@ -88,6 +88,51 @@ impl Cherry {
         self.actions.insert(action.keyword.clone(), action);
         Ok(self)
     }
+
+    /// Load the command into Cherry.
+    ///
+    /// The load command takes an Iterator of String types. This is loaded into the
+    /// Cherry object, and returns an Action if the command matches an Action
+    /// keyword or an Error if not. Most commonly used with environment args.
+    ///
+    /// # Example: Load a command.
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::new()
+    ///         .insert(Action::new("my_action")?)?;
+    ///
+    ///     // Usually, obtain arguments either from the environment or stdio.
+    ///     let args = [String::from("my_action")].into_iter();
+    ///     let request = cherry.load(args)?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    /// Todo(Paul): Implement example with arguments once supported.
+    ///
+    /// # Errors
+    /// Will error if no Action is found matching the command, either through:
+    ///
+    /// * Unknown keyword;
+    /// * Incorrect number of arguments;
+    /// * Unknown option or flag; or
+    /// * Validation rule failure.
+    ///
+    /// Upon erroring while loading, the most relevant help text will be returned.
+    /// In the event of a unknown keyword, the help text for the parent will be
+    /// given, in all other cases the help text for the located Action will be
+    /// provided.
+    pub fn load<T: Iterator<Item = String>>(&self, mut command: T) -> Result<Request> {
+        let keyword = command.next().ok_or_else(|| Error::new("Todo: Help."))?;
+        let action = self
+            .actions
+            .get(&keyword)
+            .ok_or_else(|| Error::new("Todo: Help."))?;
+
+        Ok(Request::new(action))
+    }
 }
 
 impl Default for Cherry {
@@ -135,6 +180,55 @@ mod tests {
             actions: HashMap::new(),
         };
         let actual = Cherry::default();
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::load must correctly load a Request
+    ///
+    /// The load method must correctly load a Request, linked to the correctly
+    /// selected Action type.
+    #[test]
+    fn cherry_load() {
+        let cherry = Cherry::new()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap());
+
+        let actual = cherry
+            .load([String::from("my_action")].into_iter())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::load must error when no Actions.
+    ///
+    /// The load method must error when no Actions are loaded into the Cherry
+    /// object.
+    #[test]
+    fn cherry_load_empty_actions() {
+        let expected = Error::new("Todo: Help.");
+        let actual = Cherry::new()
+            .load([String::from("my_action")].into_iter())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::load must error when no command.
+    ///
+    /// The load method must error when no command is provided when loading the
+    /// Cherry object.
+    #[test]
+    fn cherry_load_empty_command() {
+        let expected = Error::new("Todo: Help.");
+        let actual = Cherry::new()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap()
+            .load([].into_iter())
+            .unwrap_err();
+
         assert_eq!(expected, actual);
     }
 
