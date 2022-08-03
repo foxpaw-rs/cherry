@@ -14,8 +14,10 @@ pub mod error;
 
 pub use action::{Action, Request};
 pub use error::{Error, Result};
+use std::cmp::Eq;
 use std::collections::HashMap;
 use std::env::Args;
+use std::hash::Hash;
 
 /// Cherry.
 ///
@@ -105,7 +107,7 @@ impl Cherry {
     ///         .insert(Action::new("my_action")?)?;
     ///
     ///     // Usually, obtain arguments either from the environment or stdio.
-    ///     let args = [String::from("my_action")].into_iter();
+    ///     let args = ["my_action"].into_iter();
     ///     let request = cherry.load(args)?;
     ///
     ///     Ok(())
@@ -127,11 +129,15 @@ impl Cherry {
     /// In the event of a unknown keyword, the help text for the parent will be
     /// given, in all other cases the help text for the located Action will be
     /// provided.
-    pub fn load<T: Iterator<Item = String>>(&self, mut command: T) -> Result<Request> {
+    pub fn load<T, U>(&self, mut command: T) -> Result<Request>
+    where
+        T: Iterator<Item = U>,
+        U: AsRef<str> + Eq + Hash,
+    {
         let keyword = command.next().ok_or_else(|| Error::new("Todo: Help."))?;
         let action = self
             .actions
-            .get(&keyword)
+            .get(keyword.as_ref())
             .ok_or_else(|| Error::new("Todo: Help."))?;
 
         Ok(Request::new(action))
@@ -165,6 +171,32 @@ impl Cherry {
     pub fn load_args(&self, mut command: Args) -> Result<Request> {
         command.next();
         self.load(command)
+    }
+
+    /// Load the command into Cherry from a str.
+    ///
+    /// Helper method when wanting to load command arguments from a str slice.
+    /// Simply passes through to the load method. Commonly used in a CLI
+    /// application with user input from stdio.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::new()
+    ///         .insert(Action::new("my_action")?)?;
+    ///
+    ///     let request = cherry.load_str("my_action")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    /// Will error if the underlying load method errors.
+    pub fn load_str(&self, command: &str) -> Result<Request> {
+        self.load(command.split(' '))
     }
 }
 
@@ -228,9 +260,7 @@ mod tests {
 
         let expected = Request::new(&cherry.actions.get("my_action").unwrap());
 
-        let actual = cherry
-            .load([String::from("my_action")].into_iter())
-            .unwrap();
+        let actual = cherry.load(["my_action"].into_iter()).unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -242,9 +272,7 @@ mod tests {
     #[test]
     fn cherry_load_empty_actions() {
         let expected = Error::new("Todo: Help.");
-        let actual = Cherry::new()
-            .load([String::from("my_action")].into_iter())
-            .unwrap_err();
+        let actual = Cherry::new().load(["my_action"].into_iter()).unwrap_err();
 
         assert_eq!(expected, actual);
     }
@@ -255,11 +283,45 @@ mod tests {
     /// Cherry object.
     #[test]
     fn cherry_load_empty_command() {
+        let args: [&str; 0] = [];
         let expected = Error::new("Todo: Help.");
         let actual = Cherry::new()
             .insert(Action::new("my_action").unwrap())
             .unwrap()
-            .load([].into_iter())
+            .load(args.into_iter())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::load_str must correctly load a Request
+    ///
+    /// The load_str method must correctly load a Request, linked to the correctly
+    /// selected Action type.
+    #[test]
+    fn cherry_load_str() {
+        let cherry = Cherry::new()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap());
+
+        let actual = cherry.load_str("my_action").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::load_str must error when no command.
+    ///
+    /// The load_str method must error when no command is provided when loading the
+    /// Cherry object.
+    #[test]
+    fn cherry_load_str_empty_command() {
+        let expected = Error::new("Todo: Help.");
+        let actual = Cherry::new()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap()
+            .load_str("")
             .unwrap_err();
 
         assert_eq!(expected, actual);
