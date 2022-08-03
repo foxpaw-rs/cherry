@@ -173,6 +173,31 @@ impl Cherry {
         self.load(command)
     }
 
+    /// Load the command into Cherry from a slice.
+    ///
+    /// Helper method when wanting to load command arguments from a slice of str.
+    /// Simply passes through to the load method.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::new()
+    ///         .insert(Action::new("my_action")?)?;
+    ///
+    ///     let request = cherry.load_slice(&["my_action"])?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    /// Will error if the underlying load method errors.
+    pub fn load_slice(&self, command: &[&str]) -> Result<Request> {
+        self.load(command.iter())
+    }
+
     /// Load the command into Cherry from a str.
     ///
     /// Helper method when wanting to load command arguments from a str slice.
@@ -289,6 +314,39 @@ mod tests {
             .insert(Action::new("my_action").unwrap())
             .unwrap()
             .load(args.into_iter())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::load_slice must correctly load a Request
+    ///
+    /// The load_slice method must correctly load a Request, linked to the
+    /// correctly selected Action type.
+    #[test]
+    fn cherry_load_slice() {
+        let cherry = Cherry::new()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap());
+
+        let actual = cherry.load_slice(&["my_action"]).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::load_slice must error when no command.
+    ///
+    /// The load_slice method must error when no command is provided when loading
+    /// the Cherry object.
+    #[test]
+    fn cherry_load_slice_empty_command() {
+        let expected = Error::new("Todo: Help.");
+        let actual = Cherry::new()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap()
+            .load_slice(&[""])
             .unwrap_err();
 
         assert_eq!(expected, actual);
