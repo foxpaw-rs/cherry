@@ -15,6 +15,7 @@ pub mod error;
 pub use action::{Action, Request};
 pub use error::{Error, Result};
 use std::collections::HashMap;
+use std::env::Args;
 
 /// Cherry.
 ///
@@ -110,6 +111,8 @@ impl Cherry {
     ///     Ok(())
     /// }
     /// ```
+    ///
+    /// # Example: Load command with arguments.
     /// Todo(Paul): Implement example with arguments once supported.
     ///
     /// # Errors
@@ -132,6 +135,36 @@ impl Cherry {
             .ok_or_else(|| Error::new("Todo: Help."))?;
 
         Ok(Request::new(action))
+    }
+
+    /// Load the command into Cherry from command line arguments.
+    ///
+    /// Preferable method when loading from command line arguments. Handles the
+    /// first argument being the executable before passing off to the load method
+    /// for processing.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    /// use std::env;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::new()
+    ///         .insert(Action::new("my_action")?)?;
+    ///
+    ///     # | | -> cherry::Result<()> {
+    ///     let request = cherry.load_args(env::args())?;
+    ///     # Ok(())
+    ///     # };
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    /// Will error if the underlying load method errors.
+    pub fn load_args(&self, mut command: Args) -> Result<Request> {
+        command.next();
+        self.load(command)
     }
 }
 
