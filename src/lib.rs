@@ -70,9 +70,19 @@ impl Cherry {
     ///     Ok(cherry)
     /// }
     /// ```
+    ///
+    /// # Errors
+    /// Errors occur if attempting to insert an action with a blank (empty)
+    /// keyword. Will also error if a collision occurs when attempting to insert.
     pub fn insert(mut self, action: Action) -> Result<Cherry> {
         if action.keyword.is_empty() {
             return Err(Error::new("Action must have a non-empty keyword."));
+        }
+
+        if self.actions.contains_key(&action.keyword) {
+            return Err(Error::new(
+                &(String::from("Key \'") + &action.keyword + "\' already exists."),
+            ));
         }
 
         self.actions.insert(action.keyword.clone(), action);
@@ -160,5 +170,22 @@ mod tests {
         });
 
         assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Cherry::insert must error when a collision occurs.
+    ///
+    /// The insert method must error when attempting to insert an Action with a
+    /// duplicate keyword.
+    #[test]
+    fn cherry_insert_collision() {
+        let expected = Error::new("Key \'my_action\' already exists.");
+        let cherry = Cherry::new();
+        let actual = cherry
+            .insert(Action::new("my_action").unwrap())
+            .unwrap()
+            .insert(Action::new("my_action").unwrap())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
     }
 }

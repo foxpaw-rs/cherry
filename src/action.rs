@@ -15,6 +15,7 @@ use crate::error::{self, Error};
 /// In this instance, simply do not define an execute method.
 ///
 /// Actions house three types of data:
+///
 /// * Arguments;
 /// * Options; and
 /// * Flags.
@@ -71,6 +72,10 @@ impl Action {
     ///     Ok(())
     /// }
     /// ```
+    ///
+    /// # Errors
+    /// Will error when a blank (empty) keyword is provided. Actions must have a
+    /// non-empty keyword assigned to them.
     pub fn new(keyword: &str) -> error::Result<Action> {
         if keyword.is_empty() {
             return Err(Error::new("Action must have a non-empty keyword."));
