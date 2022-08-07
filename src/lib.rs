@@ -94,11 +94,11 @@ impl Cherry {
 
     /// Load the command into Cherry.
     ///
-    /// The load command takes an Iterator of String types. This is loaded into the
+    /// The parse command takes an Iterator of String types. This is parsed into the
     /// Cherry object, and returns an Action if the command matches an Action
     /// keyword or an Error if not. Most commonly used with environment args.
     ///
-    /// # Example: Load a command.
+    /// # Example: Load a command
     /// ```rust
     /// use cherry::{Action, Cherry};
     ///
@@ -108,28 +108,28 @@ impl Cherry {
     ///
     ///     // Usually, obtain arguments either from the environment or stdio.
     ///     let args = ["my_action"].into_iter();
-    ///     let request = cherry.load(args)?;
+    ///     let request = cherry.parse(args)?;
     ///
     ///     Ok(())
     /// }
     /// ```
     ///
-    /// # Example: Load command with arguments.
+    /// # Example: Load command with arguments
     /// Todo(Paul): Implement example with arguments once supported.
     ///
     /// # Errors
-    /// Will error if no Action is found matching the command, either through:
+    /// Will error if no Action is found matching the command through:
     ///
-    /// * Unknown keyword;
-    /// * Incorrect number of arguments;
-    /// * Unknown option or flag; or
+    /// * Unknown keyword.
+    /// * Incorrect number of arguments.
+    /// * Unknown option or flag.
     /// * Validation rule failure.
     ///
-    /// Upon erroring while loading, the most relevant help text will be returned.
+    /// Upon erroring while parsing, the most relevant help text will be returned.
     /// In the event of a unknown keyword, the help text for the parent will be
     /// given, in all other cases the help text for the located Action will be
     /// provided.
-    pub fn load<T, U>(&self, mut command: T) -> Result<Request>
+    pub fn parse<T, U>(&self, mut command: T) -> Result<Request>
     where
         T: Iterator<Item = U>,
         U: AsRef<str> + Eq + Hash,
@@ -145,8 +145,8 @@ impl Cherry {
 
     /// Load the command into Cherry from command line arguments.
     ///
-    /// Preferable method when loading from command line arguments. Handles the
-    /// first argument being the executable before passing off to the load method
+    /// Preferable method when parsing from command line arguments. Handles the
+    /// first argument being the executable before passing off to the parse method
     /// for processing.
     ///
     /// # Example
@@ -159,7 +159,7 @@ impl Cherry {
     ///         .insert(Action::new("my_action")?)?;
     ///
     ///     # | | -> cherry::Result<()> {
-    ///     let request = cherry.load_args(env::args())?;
+    ///     let request = cherry.parse_args(env::args())?;
     ///     # Ok(())
     ///     # };
     ///     Ok(())
@@ -167,16 +167,16 @@ impl Cherry {
     /// ```
     ///
     /// # Errors
-    /// Will error if the underlying load method errors.
-    pub fn load_args(&self, mut command: Args) -> Result<Request> {
+    /// Will error if the underlying parse method errors.
+    pub fn parse_args(&self, mut command: Args) -> Result<Request> {
         command.next();
-        self.load(command)
+        self.parse(command)
     }
 
     /// Load the command into Cherry from a slice.
     ///
-    /// Helper method when wanting to load command arguments from a slice of str.
-    /// Simply passes through to the load method.
+    /// Helper method when wanting to parse command arguments from a slice of str.
+    /// Simply passes through to the parse method.
     ///
     /// # Example
     /// ```rust
@@ -186,22 +186,22 @@ impl Cherry {
     ///     let mut cherry = Cherry::new()
     ///         .insert(Action::new("my_action")?)?;
     ///
-    ///     let request = cherry.load_slice(&["my_action"])?;
+    ///     let request = cherry.parse_slice(&["my_action"])?;
     ///
     ///     Ok(())
     /// }
     /// ```
     ///
     /// # Errors
-    /// Will error if the underlying load method errors.
-    pub fn load_slice(&self, command: &[&str]) -> Result<Request> {
-        self.load(command.iter())
+    /// Will error if the underlying parse method errors.
+    pub fn parse_slice(&self, command: &[&str]) -> Result<Request> {
+        self.parse(command.iter())
     }
 
     /// Load the command into Cherry from a str.
     ///
-    /// Helper method when wanting to load command arguments from a str slice.
-    /// Simply passes through to the load method. Commonly used in a CLI
+    /// Helper method when wanting to parse command arguments from a str slice.
+    /// Simply passes through to the parse method. Commonly used in a CLI
     /// application with user input from stdio.
     ///
     /// # Example
@@ -212,16 +212,16 @@ impl Cherry {
     ///     let mut cherry = Cherry::new()
     ///         .insert(Action::new("my_action")?)?;
     ///
-    ///     let request = cherry.load_str("my_action")?;
+    ///     let request = cherry.parse_str("my_action")?;
     ///
     ///     Ok(())
     /// }
     /// ```
     ///
     /// # Errors
-    /// Will error if the underlying load method errors.
-    pub fn load_str(&self, command: &str) -> Result<Request> {
-        self.load(command.split(' '))
+    /// Will error if the underlying parse method errors.
+    pub fn parse_str(&self, command: &str) -> Result<Request> {
+        self.parse(command.split(' '))
     }
 }
 
@@ -273,113 +273,113 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::load must correctly load a Request
+    /// Cherry::parse must correctly parse a Request
     ///
-    /// The load method must correctly load a Request, linked to the correctly
+    /// The parse method must correctly parse a Request, linked to the correctly
     /// selected Action type.
     #[test]
-    fn cherry_load() {
+    fn cherry_parse() {
         let cherry = Cherry::new()
             .insert(Action::new("my_action").unwrap())
             .unwrap();
 
         let expected = Request::new(&cherry.actions.get("my_action").unwrap());
 
-        let actual = cherry.load(["my_action"].into_iter()).unwrap();
+        let actual = cherry.parse(["my_action"].into_iter()).unwrap();
 
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::load must error when no Actions.
+    /// Cherry::parse must error when no Actions.
     ///
-    /// The load method must error when no Actions are loaded into the Cherry
+    /// The parse method must error when no Actions are parsed into the Cherry
     /// object.
     #[test]
-    fn cherry_load_empty_actions() {
+    fn cherry_parse_empty_actions() {
         let expected = Error::new("Todo: Help.");
-        let actual = Cherry::new().load(["my_action"].into_iter()).unwrap_err();
+        let actual = Cherry::new().parse(["my_action"].into_iter()).unwrap_err();
 
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::load must error when no command.
+    /// Cherry::parse must error when no command.
     ///
-    /// The load method must error when no command is provided when loading the
+    /// The parse method must error when no command is provided when parsing the
     /// Cherry object.
     #[test]
-    fn cherry_load_empty_command() {
+    fn cherry_parse_empty_command() {
         let args: [&str; 0] = [];
         let expected = Error::new("Todo: Help.");
         let actual = Cherry::new()
             .insert(Action::new("my_action").unwrap())
             .unwrap()
-            .load(args.into_iter())
+            .parse(args.into_iter())
             .unwrap_err();
 
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::load_slice must correctly load a Request
+    /// Cherry::parse_slice must correctly parse a Request
     ///
-    /// The load_slice method must correctly load a Request, linked to the
+    /// The parse_slice method must correctly parse a Request, linked to the
     /// correctly selected Action type.
     #[test]
-    fn cherry_load_slice() {
+    fn cherry_parse_slice() {
         let cherry = Cherry::new()
             .insert(Action::new("my_action").unwrap())
             .unwrap();
 
         let expected = Request::new(&cherry.actions.get("my_action").unwrap());
 
-        let actual = cherry.load_slice(&["my_action"]).unwrap();
+        let actual = cherry.parse_slice(&["my_action"]).unwrap();
 
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::load_slice must error when no command.
+    /// Cherry::parse_slice must error when no command.
     ///
-    /// The load_slice method must error when no command is provided when loading
+    /// The parse_slice method must error when no command is provided when parsing
     /// the Cherry object.
     #[test]
-    fn cherry_load_slice_empty_command() {
+    fn cherry_parse_slice_empty_command() {
         let expected = Error::new("Todo: Help.");
         let actual = Cherry::new()
             .insert(Action::new("my_action").unwrap())
             .unwrap()
-            .load_slice(&[""])
+            .parse_slice(&[""])
             .unwrap_err();
 
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::load_str must correctly load a Request
+    /// Cherry::parse_str must correctly parse a Request
     ///
-    /// The load_str method must correctly load a Request, linked to the correctly
+    /// The parse_str method must correctly parse a Request, linked to the correctly
     /// selected Action type.
     #[test]
-    fn cherry_load_str() {
+    fn cherry_parse_str() {
         let cherry = Cherry::new()
             .insert(Action::new("my_action").unwrap())
             .unwrap();
 
         let expected = Request::new(&cherry.actions.get("my_action").unwrap());
 
-        let actual = cherry.load_str("my_action").unwrap();
+        let actual = cherry.parse_str("my_action").unwrap();
 
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::load_str must error when no command.
+    /// Cherry::parse_str must error when no command.
     ///
-    /// The load_str method must error when no command is provided when loading the
+    /// The parse_str method must error when no command is provided when parsing the
     /// Cherry object.
     #[test]
-    fn cherry_load_str_empty_command() {
+    fn cherry_parse_str_empty_command() {
         let expected = Error::new("Todo: Help.");
         let actual = Cherry::new()
             .insert(Action::new("my_action").unwrap())
             .unwrap()
-            .load_str("")
+            .parse_str("")
             .unwrap_err();
 
         assert_eq!(expected, actual);

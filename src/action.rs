@@ -14,10 +14,10 @@ use crate::error::{self, Error};
 /// wherein the action is simply a parent Action that houses child Actions.
 /// In this instance, simply do not define an callback method.
 ///
-/// Actions house three types of data:
+/// Actions hold data within:
 ///
-/// * Arguments;
-/// * Options; and
+/// * Arguments.
+/// * Options.
 /// * Flags.
 ///
 /// Arguments are the values that follow the execution word, e.g.
@@ -35,27 +35,27 @@ use crate::error::{self, Error};
 /// short name. Flags do not take an option value. Flags using the short name
 /// can be combined e.g `my_action --verbose -a -bcd`.
 ///
-/// # Example: Create an action.
+/// # Example: Create an action
 /// ```rust
 /// // Todo(Paul): When actions have been completed.
 /// ```
 ///
-/// # Exmaple: Parent and child actions.
+/// # Example: Parent and child actions
 /// ```rust
 /// // Todo(Paul): When actions have parent-child relationships.
 /// ```
 ///
-/// # Exmaple: Abstract parent action.
+/// # Example: Abstract parent action
 /// ```rust
 /// // Todo(Paul): When actions have parent-child relationships.
 /// ```
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Action {
-    /// The keyword to invoke this Action.
-    pub keyword: String,
-
     /// The description for this Action.
     pub description: Option<String>,
+
+    /// The keyword to invoke this Action.
+    pub keyword: String,
 }
 
 impl Action {
@@ -63,7 +63,7 @@ impl Action {
     ///
     /// Create a new Action instance.
     ///
-    /// # Examples
+    /// # Example
     /// ```rust
     /// use cherry::Action;
     ///
@@ -111,12 +111,12 @@ impl Action {
 
 /// Request.
 ///
-/// Requests are the data structure loaded from a Cherry instance. Requests
-/// hold the loaded data and are linked to the Action the application loaded
+/// Requests are the data structure parsed from a Cherry instance. Requests
+/// hold the parsed data and are linked to the Action the application parsed
 /// from. Typical interaction with Requests is to retrieve them from the Cherry
-/// instance through loading, before running the Action's callback method.
+/// instance through parsing, before running the Action's callback method.
 ///
-/// # Example: Running a loaded request.
+/// # Example: Running a parsed request
 /// ```rust
 /// // Todo(Paul): When actions have a callback.
 /// ```
