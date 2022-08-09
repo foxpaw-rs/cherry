@@ -52,7 +52,7 @@ impl Display for Error {
     ///
     /// Formats the error for display and pretty printing.
     ///
-    /// # Examples
+    /// # Example
     /// ```
     /// use cherry::Error;
     ///

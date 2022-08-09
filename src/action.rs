@@ -5,6 +5,8 @@
 //! application.
 
 use crate::error::{self, Error};
+use core::cmp::Ordering;
+use std::fmt::{self, Debug, Formatter};
 
 /// Action.
 ///
@@ -35,27 +37,30 @@ use crate::error::{self, Error};
 /// short name. Flags do not take an option value. Flags using the short name
 /// can be combined e.g `my_action --verbose -a -bcd`.
 ///
-/// # Example: Create an action
+/// # Example
+/// ## Create an action
 /// ```rust
 /// // Todo(Paul): When actions have been completed.
 /// ```
 ///
-/// # Example: Parent and child actions
+/// ## Parent and child actions
 /// ```rust
 /// // Todo(Paul): When actions have parent-child relationships.
 /// ```
 ///
-/// # Example: Abstract parent action
+/// ## Abstract parent action
 /// ```rust
 /// // Todo(Paul): When actions have parent-child relationships.
 /// ```
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Action {
     /// The description for this Action.
     pub description: Option<String>,
 
     /// The keyword to invoke this Action.
     pub keyword: String,
+
+    /// The callback method attached to the Action.
+    pub then: Option<Box<dyn Fn(Request)>>,
 }
 
 impl Action {
@@ -82,8 +87,9 @@ impl Action {
         }
 
         Ok(Action {
-            keyword: String::from(keyword),
             description: None,
+            keyword: String::from(keyword),
+            then: None,
         })
     }
 
@@ -107,6 +113,136 @@ impl Action {
         self.description = Some(String::from(description));
         self
     }
+
+    /// Update the then callback on the Action.
+    ///
+    /// The then callback of the Action is the method or closure that is called
+    /// when this action is parsed from the input.
+    ///
+    /// # Example
+    /// ## Using a method
+    /// ```rust
+    /// use cherry::{Action, Request};
+    ///
+    /// fn hello(request: Request) {
+    ///     println!("Hello World");
+    /// }
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::new("my_action")?
+    ///         .then(hello);
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// ## Using a closure
+    /// ```rust
+    /// use cherry::Action;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::new("my_action")?
+    ///         .then(|request| {
+    ///             // Implement application logic.
+    ///         });
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn then(mut self, then: impl Fn(Request) + 'static) -> Self {
+        self.then = Some(Box::new(then));
+        self
+    }
+}
+
+impl Debug for Action {
+    /// Format an Action for debug.
+    ///
+    /// Formats the Action for debug printing.
+    ///
+    /// # Example
+    /// ```
+    /// use cherry::Action;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::new("action")?;
+    ///     println!("{:?}", action);
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    /// Will error if the underlying write macro fails.
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Action (\n\tkeyword: {},\n\t description: {:?}",
+            self.keyword, self.description
+        )
+    }
+}
+
+impl Eq for Action {}
+
+impl Ord for Action {
+    /// Ordering implementation.
+    ///
+    /// Defines how Actions should be ordered using comparison operators.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Action;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Action::new("a")?;
+    ///     let last = Action::new("z")?;
+    ///     assert!(first < last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.keyword.cmp(&other.keyword)
+    }
+}
+
+impl PartialEq for Action {
+    /// Partial Equality implementation.
+    ///
+    /// Defines how Actions should be considered equal.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Action;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Action::new("a")?.description("desc");
+    ///     let last = Action::new("a")?.description("desc");
+    ///     assert_eq!(first, last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn eq(&self, other: &Self) -> bool {
+        self.description == other.description && self.keyword == other.keyword
+    }
+}
+
+impl PartialOrd for Action {
+    /// Partial Ordering implementation.
+    ///
+    /// Defines how Actions should be ordered using comparison operators.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Action;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Action::new("a")?;
+    ///     let last = Action::new("z")?;
+    ///     assert!(first < last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.keyword.partial_cmp(&other.keyword)
+    }
 }
 
 /// Request.
@@ -116,11 +252,11 @@ impl Action {
 /// from. Typical interaction with Requests is to retrieve them from the Cherry
 /// instance through parsing, before running the Action's callback method.
 ///
-/// # Example: Running a parsed request
+/// # Example
 /// ```rust
 /// // Todo(Paul): When actions have a callback.
 /// ```
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Request<'a> {
     /// The Action this Request is bound to.
     action: &'a Action,
@@ -158,8 +294,9 @@ mod tests {
     #[test]
     fn action_new() {
         let expected = Action {
-            keyword: String::from("my_action"),
             description: None,
+            keyword: String::from("my_action"),
+            then: None,
         };
         let actual = Action::new("my_action").unwrap();
 
@@ -184,15 +321,39 @@ mod tests {
     /// to the provided text.
     #[test]
     fn action_description() {
-        let expected = Action {
-            keyword: String::from("my_action"),
-            description: Some(String::from("My description.")),
-        };
-        let actual = Action::new("my_action")
+        let action = Action::new("my_action")
             .unwrap()
             .description("My description.");
 
-        assert_eq!(expected, actual);
+        assert_eq!(Some(String::from("My description.")), action.description);
+    }
+
+    /// Action::then must correctly set the then callback with a closure.
+    ///
+    /// The then method must correctly set the internal Action then callback when
+    /// passed a closure.
+    #[test]
+    fn action_then_closure() {
+        let text = "Hello World!";
+        let action = Action::new("my_action")
+            .unwrap()
+            .then(move |_request: Request| println!("{}", text));
+
+        assert!(action.then.is_some());
+    }
+
+    /// Action::then must correctly set the then callback with a method.
+    ///
+    /// The then method must correctly set the internal Action then callback when
+    /// passed a method.
+    #[test]
+    fn action_then_method() {
+        fn callback(_request: Request) {
+            println!("Hello World!");
+        }
+        let action = Action::new("my_action").unwrap().then(callback);
+
+        assert!(action.then.is_some());
     }
 
     /// Request::new must create as per struct initialisation.

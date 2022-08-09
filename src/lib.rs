@@ -2,9 +2,22 @@
 //!
 //! # Usage
 //!
-//! # Example
+//! # Examples
+//! ## Setup actions
 //! ```rust
 //! ```
+//!
+//! ## Run action
+//! Using the actions set up from the above example.
+//! ```rust
+//! ```
+//!
+//! ## Using the action to have input on the application state
+//! ```rust
+//! ```
+//!
+//! For further detailed examples, refer to the documentation which contain
+//! some tutorial applications using Cherry.
 
 #![deny(missing_docs)]
 #![deny(clippy::missing_docs_in_private_items)]
@@ -36,7 +49,7 @@ use std::hash::Hash;
 ///     Ok(cherry)
 /// }
 /// ```
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Cherry {
     /// The available actions inserted into the Cherry instance.
     actions: HashMap<String, Action>,
@@ -98,7 +111,8 @@ impl Cherry {
     /// Cherry object, and returns an Action if the command matches an Action
     /// keyword or an Error if not. Most commonly used with environment args.
     ///
-    /// # Example: Load a command
+    /// # Example
+    /// ## Load a command
     /// ```rust
     /// use cherry::{Action, Cherry};
     ///
@@ -114,7 +128,8 @@ impl Cherry {
     /// }
     /// ```
     ///
-    /// # Example: Load command with arguments
+    /// # Example
+    /// ## Load command with arguments
     /// Todo(Paul): Implement example with arguments once supported.
     ///
     /// # Errors
@@ -238,7 +253,7 @@ impl Default for Cherry {
     /// let cherry = Cherry::new();
     /// ```
     fn default() -> Self {
-        Cherry::new()
+        Self::new()
     }
 }
 
@@ -412,8 +427,9 @@ mod tests {
 
         let cherry = Cherry::new();
         let actual = cherry.insert(Action {
-            keyword: String::from(""),
             description: None,
+            keyword: String::from(""),
+            then: None,
         });
 
         assert_eq!(expected, actual.unwrap_err());
