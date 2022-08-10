@@ -52,7 +52,7 @@ use std::fmt::{self, Debug, Formatter};
 /// ```rust
 /// // Todo(Paul): When actions have parent-child relationships.
 /// ```
-pub struct Action {
+pub struct Action<T> {
     /// The description for this Action.
     pub description: Option<String>,
 
@@ -60,10 +60,10 @@ pub struct Action {
     pub keyword: String,
 
     /// The callback method attached to the Action.
-    pub then: Option<Box<dyn Fn(Request)>>,
+    pub then: Option<Box<dyn Fn(Request<T>) -> T>>,
 }
 
-impl Action {
+impl<T> Action<T> {
     /// Create a new Action.
     ///
     /// Create a new Action instance.
@@ -73,7 +73,7 @@ impl Action {
     /// use cherry::Action;
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::new("my_action")?;
+    ///     let action = Action::<()>::new("my_action")?;
     ///     Ok(())
     /// }
     /// ```
@@ -81,7 +81,7 @@ impl Action {
     /// # Errors
     /// Will error when a blank (empty) keyword is provided. Actions must have a
     /// non-empty keyword assigned to them.
-    pub fn new(keyword: &str) -> error::Result<Action> {
+    pub fn new(keyword: &str) -> error::Result<Self> {
         if keyword.is_empty() {
             return Err(Error::new("Action must have a non-empty keyword."));
         }
@@ -104,12 +104,12 @@ impl Action {
     /// use cherry::Action;
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::new("my_action")?
+    ///     let action = Action::<()>::new("my_action")?
     ///        .description("The action description");
     ///     Ok(())
     /// }
     /// ```
-    pub fn description(mut self, description: &str) -> Action {
+    pub fn description(mut self, description: &str) -> Self {
         self.description = Some(String::from(description));
         self
     }
@@ -124,12 +124,12 @@ impl Action {
     /// ```rust
     /// use cherry::{Action, Request};
     ///
-    /// fn hello(request: Request) {
+    /// fn hello(request: Request<()>) {
     ///     println!("Hello World");
     /// }
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::new("my_action")?
+    ///     let action = Action::<()>::new("my_action")?
     ///         .then(hello);
     ///     Ok(())
     /// }
@@ -140,20 +140,20 @@ impl Action {
     /// use cherry::Action;
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::new("my_action")?
+    ///     let action = Action::<()>::new("my_action")?
     ///         .then(|request| {
     ///             // Implement application logic.
     ///         });
     ///     Ok(())
     /// }
     /// ```
-    pub fn then(mut self, then: impl Fn(Request) + 'static) -> Self {
+    pub fn then(mut self, then: impl Fn(Request<T>) -> T + 'static) -> Self {
         self.then = Some(Box::new(then));
         self
     }
 }
 
-impl Debug for Action {
+impl<T> Debug for Action<T> {
     /// Format an Action for debug.
     ///
     /// Formats the Action for debug printing.
@@ -163,7 +163,7 @@ impl Debug for Action {
     /// use cherry::Action;
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::new("action")?;
+    ///     let action = Action::<()>::new("action")?;
     ///     println!("{:?}", action);
     ///     Ok(())
     /// }
@@ -180,9 +180,9 @@ impl Debug for Action {
     }
 }
 
-impl Eq for Action {}
+impl<T> Eq for Action<T> {}
 
-impl Ord for Action {
+impl<T> Ord for Action<T> {
     /// Ordering implementation.
     ///
     /// Defines how Actions should be ordered using comparison operators.
@@ -192,8 +192,8 @@ impl Ord for Action {
     /// use cherry::Action;
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let first = Action::new("a")?;
-    ///     let last = Action::new("z")?;
+    ///     let first = Action::<()>::new("a")?;
+    ///     let last = Action::<()>::new("z")?;
     ///     assert!(first < last);
     ///     Ok(())
     /// }
@@ -203,7 +203,7 @@ impl Ord for Action {
     }
 }
 
-impl PartialEq for Action {
+impl<T> PartialEq for Action<T> {
     /// Partial Equality implementation.
     ///
     /// Defines how Actions should be considered equal.
@@ -213,8 +213,8 @@ impl PartialEq for Action {
     /// use cherry::Action;
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let first = Action::new("a")?.description("desc");
-    ///     let last = Action::new("a")?.description("desc");
+    ///     let first = Action::<()>::new("a")?.description("desc");
+    ///     let last = Action::<()>::new("a")?.description("desc");
     ///     assert_eq!(first, last);
     ///     Ok(())
     /// }
@@ -224,7 +224,7 @@ impl PartialEq for Action {
     }
 }
 
-impl PartialOrd for Action {
+impl<T> PartialOrd for Action<T> {
     /// Partial Ordering implementation.
     ///
     /// Defines how Actions should be ordered using comparison operators.
@@ -234,8 +234,8 @@ impl PartialOrd for Action {
     /// use cherry::Action;
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let first = Action::new("a")?;
-    ///     let last = Action::new("z")?;
+    ///     let first = Action::<()>::new("a")?;
+    ///     let last = Action::<()>::new("z")?;
     ///     assert!(first < last);
     ///     Ok(())
     /// }
@@ -257,12 +257,12 @@ impl PartialOrd for Action {
 /// // Todo(Paul): When actions have a callback.
 /// ```
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Request<'a> {
+pub struct Request<'a, T> {
     /// The Action this Request is bound to.
-    action: &'a Action,
+    action: &'a Action<T>,
 }
 
-impl<'a> Request<'a> {
+impl<'a, T> Request<'a, T> {
     /// Create a new Request.
     ///
     /// Create a new Request instance.
@@ -272,12 +272,12 @@ impl<'a> Request<'a> {
     /// use cherry::{Action, Request};
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::new("my_action")?;
+    ///     let action = Action::<()>::new("my_action")?;
     ///     let cherry = Request::new(&action);
     ///     Ok(())
     /// }
     /// ```
-    pub fn new(action: &'a Action) -> Self {
+    pub fn new(action: &'a Action<T>) -> Self {
         Self { action }
     }
 }
@@ -298,7 +298,7 @@ mod tests {
             keyword: String::from("my_action"),
             then: None,
         };
-        let actual = Action::new("my_action").unwrap();
+        let actual = Action::<()>::new("my_action").unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn action_new_empty() {
         let expected = Error::new("Action must have a non-empty keyword.");
-        let actual = Action::new("");
+        let actual = Action::<()>::new("");
 
         assert_eq!(expected, actual.unwrap_err());
     }
@@ -321,7 +321,7 @@ mod tests {
     /// to the provided text.
     #[test]
     fn action_description() {
-        let action = Action::new("my_action")
+        let action = Action::<()>::new("my_action")
             .unwrap()
             .description("My description.");
 
@@ -337,7 +337,7 @@ mod tests {
         let text = "Hello World!";
         let action = Action::new("my_action")
             .unwrap()
-            .then(move |_request: Request| println!("{}", text));
+            .then(move |_request: Request<()>| println!("{}", text));
 
         assert!(action.then.is_some());
     }
@@ -348,7 +348,7 @@ mod tests {
     /// passed a method.
     #[test]
     fn action_then_method() {
-        fn callback(_request: Request) {
+        fn callback(_request: Request<()>) -> () {
             println!("Hello World!");
         }
         let action = Action::new("my_action").unwrap().then(callback);
@@ -362,7 +362,7 @@ mod tests {
     /// initialiser syntax.
     #[test]
     fn request_new() {
-        let action = Action::new("my_action").unwrap();
+        let action = Action::<()>::new("my_action").unwrap();
         let expected = Request { action: &action };
         let actual = Request::new(&action);
 
