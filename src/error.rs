@@ -61,7 +61,7 @@ impl Display for Error {
     /// eprintln!("{}", error);
     /// ```
     ///
-    /// # Errors
+    /// # Error
     /// Will error if the underlying write macro fails.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Error: {}", self.message)

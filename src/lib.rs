@@ -93,7 +93,7 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
-    /// # Errors
+    /// # Error
     /// Errors occur if attempting to insert an action with a blank (empty)
     /// keyword. Will also error if a collision occurs when attempting to insert.
     pub fn insert(mut self, action: Action<T>) -> Result<Self> {
@@ -138,7 +138,7 @@ impl<T> Cherry<T> {
     /// ## Load command with arguments
     /// Todo(Paul): Implement example with arguments once supported.
     ///
-    /// # Errors
+    /// # Error
     /// Will error if no Action is found matching the command through:
     ///
     /// * Unknown keyword.
@@ -187,7 +187,7 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
-    /// # Errors
+    /// # Error
     /// Will error if the underlying parse method errors.
     pub fn parse_args(&self, mut command: Args) -> Result<Request<T>> {
         command.next();
@@ -213,7 +213,7 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
-    /// # Errors
+    /// # Error
     /// Will error if the underlying parse method errors.
     pub fn parse_slice(&self, command: &[&str]) -> Result<Request<T>> {
         self.parse(command.iter())
@@ -239,7 +239,7 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
-    /// # Errors
+    /// # Error
     /// Will error if the underlying parse method errors.
     pub fn parse_str(&self, command: &str) -> Result<Request<T>> {
         self.parse(command.split(' '))

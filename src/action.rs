@@ -82,7 +82,7 @@ impl<T> Action<T> {
     /// }
     /// ```
     ///
-    /// # Errors
+    /// # Error
     /// Will error when a blank (empty) keyword is provided. Actions must have a
     /// non-empty keyword assigned to them.
     pub fn new(keyword: &str) -> error::Result<Self> {
@@ -116,6 +116,47 @@ impl<T> Action<T> {
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(String::from(description));
         self
+    }
+
+    /// Run this Action.
+    ///
+    /// Execute this Action's callback using the provided Request. The Request
+    /// provided must have an Action reference to this Action. This method will
+    /// usually be invoked through the Request, returned when parsing through
+    /// the Cherry instance.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Request};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::new("my_action")?
+    ///         .then(|_request| println!("Hello world!"));
+    ///     let request = Request::new(&action);
+    ///
+    ///     action.run(request);
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// This method will error if:
+    /// * The Request does not hold a reference to this Action.
+    /// * There is no then callback to run.
+    ///
+    /// If there is no then callback, the Error will be a help message on how to
+    /// correctly use this Action (e.g. using child Actions).
+    pub fn run(&self, request: Request<T>) -> error::Result<T> {
+        if request.action != self {
+            return Err(Error::new(&format!(
+                "Cannot run request for action '{}' on action '{}'.",
+                &request.action.keyword, &self.keyword
+            )));
+        }
+
+        self.then
+            .as_ref()
+            .map_or_else(|| Err(Error::new("Todo: Help.")), |then| Ok(then(request)))
     }
 
     /// Update the then callback on the Action.
@@ -173,7 +214,7 @@ impl<T> Debug for Action<T> {
     /// }
     /// ```
     ///
-    /// # Errors
+    /// # Error
     /// Will error if the underlying write macro fails.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
@@ -334,6 +375,56 @@ mod tests {
             .description("My description.");
 
         assert_eq!(Some(String::from("My description.")), action.description);
+    }
+
+    /// Action::run must correctly run the method.
+    ///
+    /// The run method must correctly call the Action's then callback with the
+    /// provided Request.
+    #[test]
+    fn action_run() {
+        let action = Action::new("my_action")
+            .unwrap()
+            .then(|_request| -> u8 { 1_u8 });
+
+        let request = Request::new(&action);
+
+        assert_eq!(1, action.run(request).unwrap());
+    }
+
+    /// Action::run must error on a reference mismatch.
+    ///
+    /// The run method must return an Error when the Result does not refernece the
+    /// correct Action.
+    #[test]
+    fn action_run_reference_mismatch() {
+        let action = Action::new("my_action")
+            .unwrap()
+            .then(|_request| -> u8 { 1_u8 });
+
+        let ref_action = Action::new("my_ref_action")
+            .unwrap()
+            .then(|_request| -> u8 { 2_u8 });
+
+        let request = Request::new(&ref_action);
+        let error =
+            Error::new("Cannot run request for action 'my_ref_action' on action 'my_action'.");
+
+        assert_eq!(error, action.run(request).unwrap_err());
+    }
+
+    /// Action::run must error when no then callback.
+    ///
+    /// The run method must return an Error when the Action does not have a set
+    /// then callback
+    #[test]
+    fn action_run_missing_then() {
+        let action = Action::<()>::new("my_action").unwrap();
+
+        let request = Request::new(&action);
+        let error = Error::new("Todo: Help.");
+
+        assert_eq!(error, action.run(request).unwrap_err());
     }
 
     /// Action::then must correctly set the then callback with a closure.
