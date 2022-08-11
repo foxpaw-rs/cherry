@@ -58,13 +58,13 @@ use std::fmt::{self, Debug, Formatter};
 /// ```
 pub struct Action<T> {
     /// The description for this Action.
-    pub description: Option<String>,
+    description: Option<String>,
 
     /// The keyword to invoke this Action.
     pub keyword: String,
 
     /// The callback method attached to the Action.
-    pub then: Option<Box<dyn Fn(Request<T>) -> T>>,
+    then: Option<Box<dyn Fn(Request<T>) -> T>>,
 }
 
 impl<T> Action<T> {
@@ -303,7 +303,20 @@ impl<T> PartialOrd for Action<T> {
 ///
 /// # Example
 /// ```rust
-/// // Todo(Paul): When actions have a callback.
+/// use cherry::{Action, Cherry};
+///
+/// fn main() -> cherry::Result<()> {
+///     let cherry = Cherry::new()
+///         .insert(
+///             Action::new("my_action")?
+///                 .then(|request| {
+///                     // Do something...
+///                 })
+///         )?;
+///     let request = cherry.parse_str("my_action")?;
+///     request.run();
+///     Ok(())
+/// }
 /// ```
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Request<'a, T> {
@@ -328,6 +341,31 @@ impl<'a, T> Request<'a, T> {
     /// ```
     pub fn new(action: &'a Action<T>) -> Self {
         Self { action }
+    }
+
+    /// Run the Request.
+    ///
+    /// Invoke the Action's run method, consuming this Request.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Request};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::new("my_action")?
+    ///         .then(|_request| println!("Hello World"));
+    ///     let request = Request::new(&action);
+    ///
+    ///     request.run();
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Will error if the underlying call to the Action's run method retuens an
+    /// error.
+    pub fn run(self) -> error::Result<T> {
+        self.action.run(self)
     }
 }
 
@@ -466,5 +504,18 @@ mod tests {
         let actual = Request::new(&action);
 
         assert_eq!(expected, actual);
+    }
+
+    /// Request::run must run the Action's then callback.
+    ///
+    /// The run method on Request must run the Action's callback it references.
+    #[test]
+    fn request_run() {
+        let action = Action::new("my_action")
+            .unwrap()
+            .then(|_request| -> u8 { 1_u8 });
+        let request = Request::new(&action);
+
+        assert_eq!(1, request.run().unwrap());
     }
 }

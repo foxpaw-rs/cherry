@@ -434,11 +434,9 @@ mod tests {
         let expected = Error::new("Action must have a non-empty keyword.");
 
         let cherry = Cherry::<()>::new();
-        let actual = cherry.insert(Action {
-            description: None,
-            keyword: String::from(""),
-            then: None,
-        });
+        let mut action = Action::new("action").unwrap();
+        action.keyword = String::from("");
+        let actual = cherry.insert(action);
 
         assert_eq!(expected, actual.unwrap_err());
     }
