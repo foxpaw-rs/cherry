@@ -8,13 +8,17 @@ use crate::error::{self, Error};
 use core::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 
-/// Action.
+/// Action<T>.
 ///
 /// Actions are the customised application specific commands. Actions are
 /// defined and inserted into the Cherry CLI runner as a base Action, or
 /// inserted into another Action as a child Action. Actions can be abstract,
 /// wherein the action is simply a parent Action that houses child Actions.
 /// In this instance, simply do not define an callback method.
+///
+/// Actions are generic over the type returned from the callback method. This
+/// can be explicitly specified during creation or inferred if chaining a call
+/// to the then method.
 ///
 /// Actions hold data within:
 ///
@@ -245,12 +249,16 @@ impl<T> PartialOrd for Action<T> {
     }
 }
 
-/// Request.
+/// Request<T>.
 ///
 /// Requests are the data structure parsed from a Cherry instance. Requests
 /// hold the parsed data and are linked to the Action the application parsed
 /// from. Typical interaction with Requests is to retrieve them from the Cherry
 /// instance through parsing, before running the Action's callback method.
+///
+/// Requests are generic over the type expected to be returned from the Action.
+/// This will be inferred when creating a Request object as the Action is
+/// supplied.
 ///
 /// # Example
 /// ```rust

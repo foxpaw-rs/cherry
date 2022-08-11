@@ -6,6 +6,7 @@
 
 use core::fmt::{self, Display, Formatter};
 use core::result;
+use std::error::Error as StdError;
 
 /// Error.
 ///
@@ -66,6 +67,8 @@ impl Display for Error {
         write!(f, "Error: {}", self.message)
     }
 }
+
+impl StdError for Error {}
 
 /// Result.
 ///

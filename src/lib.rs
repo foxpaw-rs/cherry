@@ -41,6 +41,10 @@ use std::hash::Hash;
 /// Usually, only one Cherry object is required and the pushed Action objects
 /// form a tree, navigated by the Cherry.
 ///
+/// Cherry is generic over the type returned by the Actions. This can be
+/// explicitly defined if desired, or inferred if insert calls are chained on
+/// object creation.
+///
 /// # Example
 /// ```rust
 /// use cherry::{Action, Cherry};
