@@ -162,7 +162,7 @@ impl<T> Action<T> {
     /// Update the then callback on the Action.
     ///
     /// The then callback of the Action is the method or closure that is called
-    /// when this action is parsed from the input.
+    /// when this Action is parsed from the input.
     ///
     /// # Example
     /// ## Using a method
@@ -303,7 +303,7 @@ impl<T> PartialOrd for Action<T> {
 /// command provided to the Cherry instance was valid.
 ///
 /// # Example
-/// Todo(Paul): Uncomment once Argument completed.
+/// Todo(Paul): Uncomment once Argument implementation completed.
 // /// ```rust
 // /// use cherry::Action;
 // ///
@@ -382,6 +382,46 @@ impl Argument {
     /// ```
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(String::from(description));
+        self
+    }
+
+    /// Update the filter callback on the Argument.
+    ///
+    /// The filter callback of the Argument is the method or closure that is called
+    /// when this Argument is parsed from the input to determine if the input is
+    /// valid.
+    ///
+    /// # Example
+    /// ## Using a method
+    /// ```rust
+    /// use cherry::{Argument};
+    ///
+    /// fn is_valid(value: &str) -> bool {
+    ///     value == "Hello"
+    /// }
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Argument::new("my_action")?
+    ///         .filter(is_valid);
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// ## Using a closure
+    /// ```rust
+    /// use cherry::Argument;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Argument::new("my_action")?
+    ///         .filter(|val: &str| -> bool {
+    ///             // Implement application logic.
+    ///             true
+    ///         });
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn filter(mut self, filter: impl Fn(&str) -> bool + 'static) -> Self {
+        self.filter = Some(Box::new(filter));
         self
     }
 }
@@ -755,22 +795,48 @@ mod tests {
         assert_eq!(Some(String::from("My description.")), argument.description);
     }
 
-    // Todo(Paul): When Argument complete.
-    // /// Argument::fmt must debug the Argument.
-    // ///
-    // /// The custom implementation of the Debug::fmt method must correctly display
-    // /// the Argument.
-    // #[test]
-    // fn argument_fmt() {
-    //     let argument = Argument::new("argument")
-    //         .unwrap()
-    //         .description("Argument description.")
-    //         .filter(|_| {});
-    //     let expected = "Argument { title: \"argument\", description: Some(\"Argument description.\"), filter: Some(\"fn(&str) -> bool\") }";
-    //     let actual = format!("{:?}", argument);
+    /// Argument::filter must correctly set the filter callback with a closure.
+    ///
+    /// The filter method must correctly set the internal Argument filter callback when
+    /// passed a closure.
+    #[test]
+    fn action_filter_closure() {
+        let argument = Argument::new("my_argument")
+            .unwrap()
+            .filter(|value: &str| -> bool { value == "Hello" });
 
-    //     assert_eq!(expected, actual);
-    // }
+        assert!(argument.filter.is_some());
+    }
+
+    /// Argument::filter must correctly set the filter callback with a method.
+    ///
+    /// The filter method must correctly set the internal Argument filter callback when
+    /// passed a method.
+    #[test]
+    fn argument_filter_method() {
+        fn callback(value: &str) -> bool {
+            value == "Hello"
+        }
+        let argument = Argument::new("my_argument").unwrap().filter(callback);
+
+        assert!(argument.filter.is_some());
+    }
+
+    /// Argument::fmt must debug the Argument.
+    ///
+    /// The custom implementation of the Debug::fmt method must correctly display
+    /// the Argument.
+    #[test]
+    fn argument_fmt() {
+        let argument = Argument::new("argument")
+            .unwrap()
+            .description("Argument description.")
+            .filter(|_| -> bool { true });
+        let expected = "Argument { title: \"argument\", description: Some(\"Argument description.\"), filter: Some(\"fn(&str) -> bool\") }";
+        let actual = format!("{:?}", argument);
+
+        assert_eq!(expected, actual);
+    }
 
     /// Argument::fmt must handle a missing Options.
     ///
