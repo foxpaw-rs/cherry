@@ -27,7 +27,7 @@
 pub mod action;
 pub mod error;
 
-pub use action::{Action, Request};
+pub use action::{Action, Argument, Request};
 pub use error::{Error, Result};
 use std::cmp::Eq;
 use std::collections::HashMap;

@@ -57,11 +57,11 @@ use std::fmt::{self, Debug, Formatter};
 /// // Todo(Paul): When actions have parent-child relationships.
 /// ```
 pub struct Action<T> {
-    /// The description for this Action.
-    description: Option<String>,
-
     /// The keyword to invoke this Action.
     pub keyword: String,
+
+    /// The description for this Action.
+    description: Option<String>,
 
     /// The callback method attached to the Action.
     then: Option<Box<dyn Fn(Request<T>) -> T>>,
@@ -219,8 +219,12 @@ impl<T> Debug for Action<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
-            "Action (\n\tkeyword: {},\n\t description: {:?}",
-            self.keyword, self.description
+            "Action {{ keyword: {:?}, description: {:?}, then: {:?} }}",
+            self.keyword,
+            self.description,
+            self.then
+                .as_ref()
+                .map_or_else(|| None, |_| Some("fn(Request<T>) -> T"))
         )
     }
 }
@@ -265,7 +269,7 @@ impl<T> PartialEq for Action<T> {
     /// }
     /// ```
     fn eq(&self, other: &Self) -> bool {
-        self.description == other.description && self.keyword == other.keyword
+        self.keyword == other.keyword && self.description == other.description
     }
 }
 
@@ -287,6 +291,173 @@ impl<T> PartialOrd for Action<T> {
     /// ```
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.keyword.partial_cmp(&other.keyword)
+    }
+}
+
+/// Argument.
+///
+/// Arguments are the initial separated values parsed by the Cherry instance.
+/// Arguments are consumed immediately after an Action is selected. If
+/// Arguments have a filter method, this filter is run against the provided
+/// value to determine if the provided value is valid, and therefore if the
+/// command provided to the Cherry instance was valid.
+///
+/// # Example
+/// Todo(Paul): Uncomment once Argument completed.
+// /// ```rust
+// /// use cherry::Action;
+// ///
+// /// fn main() -> cherry::Result<()> {
+// ///     let action = Action::new("my_action")?
+// ///         .push_argument(
+// ///              Argument::new("greeting")
+// ///                  .description("The greeting to display, must be hello.")
+// ///                  .filter(|value| { value == "hello" })
+// ///          )
+// ///         .then(|result| -> String { result.arguments[0] });
+// ///      let cherry = Cherry::new()
+// ///          .insert(action)?;
+// ///
+// ///      // Will provide value "Hello"
+// ///      cherry.parse_str("my_action hello")
+// ///      Ok(())
+// /// }
+// /// ```
+pub struct Argument {
+    /// The Argument title for use in help text.
+    pub title: String,
+
+    /// The Argument description for use in help text.
+    description: Option<String>,
+
+    /// The filter to determine if the provided value is valid.
+    filter: Option<Box<dyn Fn(&str) -> bool>>,
+}
+
+impl Argument {
+    /// Create a new Argument.
+    ///
+    /// Create a new Argument instance.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Argument;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let argument = Argument::new("name")?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Will error when a blank (empty) title is provided. Arguments must have a
+    /// non-empty title assigned to them.
+    pub fn new(title: &str) -> error::Result<Self> {
+        if title.is_empty() {
+            return Err(Error::new("Argument must have a non-empty title."));
+        }
+
+        Ok(Self {
+            description: None,
+            filter: None,
+            title: String::from(title),
+        })
+    }
+}
+
+impl Debug for Argument {
+    /// Format an Argument for debug.
+    ///
+    /// Formats the Argument for debug printing.
+    ///
+    /// # Example
+    /// ```
+    /// use cherry::Argument;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let argument = Argument::new("argument")?;
+    ///     println!("{:?}", argument);
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Will error if the underlying write macro fails.
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Argument {{ title: {:?}, description: {:?}, filter: {:?} }}",
+            self.title,
+            self.description,
+            self.filter
+                .as_ref()
+                .map_or_else(|| None, |_| Some("fn(&str) -> bool"))
+        )
+    }
+}
+
+impl Eq for Argument {}
+
+impl Ord for Argument {
+    /// Ordering implementation.
+    ///
+    /// Defines how Arguments should be ordered using comparison operators.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Argument;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Argument::new("a")?;
+    ///     let last = Argument::new("z")?;
+    ///     assert!(first < last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.title.cmp(&other.title)
+    }
+}
+
+impl PartialEq for Argument {
+    /// Partial Equality implementation.
+    ///
+    /// Defines how Arguments should be considered equal.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Argument;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Argument::new("a")?;
+    ///     let last = Argument::new("a")?;
+    ///     assert_eq!(first, last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn eq(&self, other: &Self) -> bool {
+        self.title == other.title && self.description == other.description
+    }
+}
+
+impl PartialOrd for Argument {
+    /// Partial Ordering implementation.
+    ///
+    /// Defines how Arguments should be ordered using comparison operators.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Argument;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Argument::new("a")?;
+    ///     let last = Argument::new("z")?;
+    ///     assert!(first < last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.title.partial_cmp(&other.title)
     }
 }
 
@@ -491,6 +662,93 @@ mod tests {
         let action = Action::new("my_action").unwrap().then(callback);
 
         assert!(action.then.is_some());
+    }
+
+    /// Action::fmt must debug the Action.
+    ///
+    /// The custom implementation of the Debug::fmt method must correctly display
+    /// the Action.
+    #[test]
+    fn action_fmt() {
+        let action = Action::new("action")
+            .unwrap()
+            .description("Action description.")
+            .then(|_| {});
+        let expected = "Action { keyword: \"action\", description: Some(\"Action description.\"), then: Some(\"fn(Request<T>) -> T\") }";
+        let actual = format!("{:?}", action);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::fmt must handle a missing Options.
+    ///
+    /// The custom implementation of the Debug::fmt method must correctly display
+    /// the Action when all Options are None.
+    #[test]
+    fn action_fmt_missing_options() {
+        let action = Action::<()>::new("action").unwrap();
+        let expected = "Action { keyword: \"action\", description: None, then: None }";
+        let actual = format!("{:?}", action);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Argument::new must create as per struct initialisation.
+    ///
+    /// The new method on Argument must create an object as per the struct
+    /// initialiser syntax.
+    #[test]
+    fn argument_new() {
+        let expected = Argument {
+            description: None,
+            filter: None,
+            title: String::from("Title"),
+        };
+        let actual = Argument::new("Title").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Argument::new must error on empty title.
+    ///
+    /// The new method must correctly error when provided with an empty title
+    /// during initialisation.
+    #[test]
+    fn argument_new_empty() {
+        let expected = Error::new("Argument must have a non-empty title.");
+        let actual = Argument::new("");
+
+        assert_eq!(expected, actual.unwrap_err());
+    }
+
+    // Todo(Paul): When Argument complete.
+    // /// Argument::fmt must debug the Argument.
+    // ///
+    // /// The custom implementation of the Debug::fmt method must correctly display
+    // /// the Argument.
+    // #[test]
+    // fn argument_fmt() {
+    //     let argument = Argument::new("argument")
+    //         .unwrap()
+    //         .description("Argument description.")
+    //         .filter(|_| {});
+    //     let expected = "Argument { title: \"argument\", description: Some(\"Argument description.\"), filter: Some(\"fn(&str) -> bool\") }";
+    //     let actual = format!("{:?}", argument);
+
+    //     assert_eq!(expected, actual);
+    // }
+
+    /// Argument::fmt must handle a missing Options.
+    ///
+    /// The custom implementation of the Debug::fmt method must correctly display
+    /// the Argument when all Options are None.
+    #[test]
+    fn argument_fmt_missing_options() {
+        let argument = Argument::new("argument").unwrap();
+        let expected = "Argument { title: \"argument\", description: None, filter: None }";
+        let actual = format!("{:?}", argument);
+
+        assert_eq!(expected, actual);
     }
 
     /// Request::new must create as per struct initialisation.
