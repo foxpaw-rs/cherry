@@ -363,6 +363,27 @@ impl Argument {
             title: String::from(title),
         })
     }
+
+    /// Update the description.
+    ///
+    /// The description of the Argument is used by the help text to assist users of
+    /// the application to understand it. A good description text allows users to
+    /// effectively use the application.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Argument;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let argument = Argument::new("my_argument")?
+    ///        .description("The argument description");
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn description(mut self, description: &str) -> Self {
+        self.description = Some(String::from(description));
+        self
+    }
 }
 
 impl Debug for Argument {
@@ -719,6 +740,19 @@ mod tests {
         let actual = Argument::new("");
 
         assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Argument::description must correctly set the description.
+    ///
+    /// The description method must correctly set the internal Argument description
+    /// to the provided text.
+    #[test]
+    fn argument_description() {
+        let argument = Argument::new("my_argument")
+            .unwrap()
+            .description("My description.");
+
+        assert_eq!(Some(String::from("My description.")), argument.description);
     }
 
     // Todo(Paul): When Argument complete.
