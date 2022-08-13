@@ -8,7 +8,6 @@ use crate::error::{self, Error};
 use core::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 
-
 /// Action<T>.
 ///
 /// Actions are the customised application specific commands. Actions are
@@ -159,12 +158,17 @@ impl<T> Action<T> {
     ///
     /// # Example
     /// ```rust
-    /// use cherry::{Action, Request};
+    /// use cherry::{Action, Cherry};
     ///
     /// fn main() -> cherry::Result<()> {
     ///     let action = Action::new("my_action")?
-    ///         .then(|_request| println!("Hello world!"));
-    ///     let request = Request::new(&action);
+    ///         .then(|_request| println!("Hello World"));
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .then(|_request| println!("Hello World"))
+    ///         )?;
+    ///     let request = cherry.parse_str("my_action")?;
     ///
     ///     action.run(request);
     ///     Ok(())
@@ -488,14 +492,12 @@ impl Debug for Argument {
             Some(_) => write!(
                 f,
                 "Argument {{ title: {:?}, description: {:?}, filter: Some(fn(&str) -> bool) }}",
-                self.title,
-                self.description,
+                self.title, self.description,
             ),
             None => write!(
                 f,
                 "Argument {{ title: {:?}, description: {:?}, filter: None }}",
-                self.title,
-                self.description,
+                self.title, self.description,
             ),
         }
     }
@@ -598,25 +600,46 @@ impl PartialOrd for Argument {
 pub struct Request<'a, T> {
     /// The Action this Request is bound to.
     action: &'a Action<T>,
+
+    /// The Argument values loaded into this Request.
+    arguments: Vec<String>,
 }
 
 impl<'a, T> Request<'a, T> {
     /// Create a new Request.
     ///
     /// Create a new Request instance.
+    pub(crate) fn new(action: &'a Action<T>) -> Self {
+        Self {
+            action,
+            arguments: Vec::new(),
+        }
+    }
+
+    /// Insert an Argument.
     ///
-    /// # Example
-    /// ```rust
-    /// use cherry::{Action, Request};
+    /// Insert an Argument into this Request. Arguments are defined on the Action
+    /// and the actual Argument values loaded into the Request.
     ///
-    /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::<()>::new("my_action")?;
-    ///     let cherry = Request::new(&action);
-    ///     Ok(())
-    /// }
-    /// ```
-    pub fn new(action: &'a Action<T>) -> Self {
-        Self { action }
+    /// # Error
+    /// Will return an Error if attempting to add too many arguments to the Request
+    /// for the Action, or if an Argument filter method fails.
+    pub(crate) fn insert_argument(mut self, argument: &str) -> error::Result<Self> {
+        let filter = self
+            .action
+            .arguments
+            .get(self.arguments.len())
+            .ok_or_else(|| Error::new("Todo: Help."))?
+            .filter
+            .as_ref();
+
+        match filter {
+            Some(callback) if !callback(argument) => Err(Error::new("Todo: Help.")),
+            _ => {
+                self.arguments.push(String::from(argument));
+                Ok(self)
+            }
+        }
     }
 
     /// Run the Request.
@@ -625,13 +648,15 @@ impl<'a, T> Request<'a, T> {
     ///
     /// # Example
     /// ```rust
-    /// use cherry::{Action, Request};
+    /// use cherry::{Action, Cherry};
     ///
     /// fn main() -> cherry::Result<()> {
-    ///     let action = Action::new("my_action")?
-    ///         .then(|_request| println!("Hello World"));
-    ///     let request = Request::new(&action);
-    ///
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .then(|_request| println!("Hello World"))
+    ///         )?;
+    ///     let request = cherry.parse_str("my_action")?;
     ///     request.run();
     ///     Ok(())
     /// }
@@ -700,7 +725,7 @@ mod tests {
     fn action_insert_argument() {
         let mut vec = Vec::new();
         vec.push(Argument::new("my_argument").unwrap());
-        
+
         let mut expected = Action::<()>::new("my_action").unwrap();
         expected.arguments = vec;
 
@@ -818,8 +843,7 @@ mod tests {
             .insert_argument(Argument::new("my_argument").unwrap())
             .unwrap()
             .then(|_| {});
-        let expected = 
-            "Action { \
+        let expected = "Action { \
                 keyword: \"action\", \
                 description: Some(\"Action description.\"), \
                 arguments: [\
@@ -843,8 +867,7 @@ mod tests {
     #[test]
     fn action_fmt_missing_options() {
         let action = Action::<()>::new("action").unwrap();
-        let expected = 
-            "Action { \
+        let expected = "Action { \
                 keyword: \"action\", \
                 description: None, \
                 arguments: [], \
@@ -933,8 +956,7 @@ mod tests {
             .unwrap()
             .description("Argument description.")
             .filter(|_| -> bool { true });
-        let expected = 
-            "Argument { \
+        let expected = "Argument { \
                 title: \"argument\", \
                 description: Some(\"Argument description.\"), \
                 filter: Some(fn(&str) -> bool) \
@@ -964,8 +986,86 @@ mod tests {
     #[test]
     fn request_new() {
         let action = Action::<()>::new("my_action").unwrap();
-        let expected = Request { action: &action };
+        let expected = Request {
+            action: &action,
+            arguments: Vec::new(),
+        };
         let actual = Request::new(&action);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_argument must insert an Argument.
+    ///
+    /// The insert argument method must insert an Argument into the Request.
+    #[test]
+    fn request_insert_argument() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+
+        let mut expected = Request::new(&action);
+        expected.arguments.push(String::from("value"));
+
+        let actual = Request::new(&action).insert_argument("value").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_argument must insert if the filter is passed.
+    ///
+    /// The insert argument method must insert an Argument into the Request if the
+    /// filter callback passess successfully.
+    #[test]
+    fn request_insert_argument_filter_pass() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap().filter(|value| -> bool { value == "value" }))
+            .unwrap();
+
+        let mut expected = Request::new(&action);
+        expected.arguments.push(String::from("value"));
+
+        let actual = Request::new(&action).insert_argument("value").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_argument must error if the filter fails.
+    ///
+    /// The insert argument method must return an Error if the filter callback
+    /// fails.
+    #[test]
+    fn request_insert_argument_filter_fail() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap().filter(|value| -> bool { value != "value" }))
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = Request::new(&action).insert_argument("value").unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_argument must error if trying to insert too many Arguments.
+    ///
+    /// The insert argument method must return an Error if attempting to insert too
+    /// many Arguments for the Action.
+    #[test]
+    fn request_insert_argument_overflow() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = Request::new(&action)
+            .insert_argument("value")
+            .unwrap()
+            .insert_argument("value")
+            .unwrap_err();
 
         assert_eq!(expected, actual);
     }

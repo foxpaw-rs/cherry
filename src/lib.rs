@@ -102,7 +102,10 @@ impl<T> Cherry<T> {
         }
 
         if self.actions.contains_key(&action.keyword) {
-            return Err(Error::new(&format!("Action \'{}\' already exists.", &action.keyword)));
+            return Err(Error::new(&format!(
+                "Action \'{}\' already exists.",
+                &action.keyword
+            )));
         }
 
         self.actions.insert(action.keyword.clone(), action);
@@ -413,7 +416,10 @@ mod tests {
     #[test]
     fn cherry_insert() {
         let mut map = HashMap::new();
-        map.insert(String::from("my_action"), Action::<()>::new("my_action").unwrap());
+        map.insert(
+            String::from("my_action"),
+            Action::<()>::new("my_action").unwrap(),
+        );
 
         let mut expected = Cherry::new();
         expected.actions = map;
