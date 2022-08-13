@@ -7,6 +7,7 @@
 use crate::error::{self, Error};
 use core::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
+use std::collections::HashMap;
 
 /// Action<T>.
 ///
@@ -66,6 +67,9 @@ pub struct Action<T> {
     /// The Arguments this Action accepts.
     arguments: Vec<Argument>,
 
+    /// The Flags this Action accepts.
+    flags: HashMap<String, Flag>,
+
     /// The callback method attached to the Action.
     then: Option<Box<dyn Fn(Request<T>) -> T>>,
 }
@@ -97,6 +101,7 @@ impl<T> Action<T> {
             keyword: String::from(keyword),
             description: None,
             arguments: Vec::new(),
+            flags: HashMap::new(),
             then: None,
         })
     }
@@ -146,6 +151,33 @@ impl<T> Action<T> {
         }
 
         self.arguments.push(argument);
+        Ok(self)
+    }
+
+    /// Insert a Flag into the Action.
+    ///
+    /// Insert a Flag onto the Action object.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Flag};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::<()>::new("my_action")?
+    ///         .insert_flag(Flag::new("my_flag")?)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Errors occur if attempting to insert an Flag with a blank (empty)
+    /// title.
+    pub fn insert_flag(mut self, flag: Flag) -> error::Result<Self> {
+        if flag.title.is_empty() {
+            return Err(Error::new("Flag must have a non-empty title."));
+        }
+
+        self.flags.insert(flag.title.clone(), flag);
         Ok(self)
     }
 
@@ -712,13 +744,16 @@ impl Flag {
 ///     Ok(())
 /// }
 /// ```
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Request<'a, T> {
     /// The Action this Request is bound to.
     action: &'a Action<T>,
 
     /// The Argument values loaded into this Request.
     arguments: Vec<String>,
+
+    /// The Flag values loaded into this Request.
+    flags: HashMap<String, bool>,
 }
 
 impl<'a, T> Request<'a, T> {
@@ -729,6 +764,7 @@ impl<'a, T> Request<'a, T> {
         Self {
             action,
             arguments: Vec::new(),
+            flags: HashMap::new(),
         }
     }
 
@@ -747,7 +783,7 @@ impl<'a, T> Request<'a, T> {
     /// and the actual Argument values loaded into the Request.
     ///
     /// # Error
-    /// Will return an Error if attempting to add too many arguments to the Request
+    /// Will return an Error if attempting to add too many Arguments to the Request
     /// for the Action, or if an Argument filter method fails.
     pub(crate) fn insert_argument(mut self, argument: &str) -> error::Result<Self> {
         let filter = self
@@ -762,6 +798,23 @@ impl<'a, T> Request<'a, T> {
             Some(callback) if !callback(argument) => Err(Error::new("Todo: Help.")),
             _ => {
                 self.arguments.push(String::from(argument));
+                Ok(self)
+            }
+        }
+    }
+
+    /// Insert a Flag.
+    ///
+    /// Insert a Flag into this Request. Flags are defined on the Action and the
+    /// Flag values are loaded into the request.
+    ///
+    /// # Error
+    /// Will error if the Flag is not found in the Action.
+    pub(crate) fn insert_flag(mut self, flag: &str) -> error::Result<Self> {
+        match self.action.flags.contains_key(flag) {
+            false => Err(Error::new("Todo: Help.")),
+            true => {
+                self.flags.insert(String::from(flag), true);
                 Ok(self)
             }
         }
@@ -837,6 +890,7 @@ mod tests {
             keyword: String::from("my_action"),
             description: None,
             arguments: Vec::new(),
+            flags: HashMap::new(),
             then: None,
         };
         let actual = Action::<()>::new("my_action").unwrap();
@@ -901,6 +955,42 @@ mod tests {
         let mut argument = Argument::new("my_argument").unwrap();
         argument.title = String::from("");
         let actual = action.insert_argument(argument);
+
+        assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Action::insert_flag must insert an Flag.
+    ///
+    /// The insert flag method must correctly insert a Flag into the internal
+    /// HashMap.
+    #[test]
+    fn action_insert_flag() {
+        let mut map = HashMap::new();
+        map.insert(String::from("my_flag"), Flag::new("my_flag").unwrap());
+
+        let mut expected = Action::<()>::new("my_action").unwrap();
+        expected.flags = map;
+
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_flag must error with empty Flag title.
+    ///
+    /// The insert flag method must error when attempting to insert an Flag with an
+    /// empty string title.
+    #[test]
+    fn action_insert_flag_empty() {
+        let expected = Error::new("Flag must have a non-empty title.");
+
+        let action = Action::<()>::new("my_action").unwrap();
+        let mut flag = Flag::new("my_flag").unwrap();
+        flag.title = String::from("");
+        let actual = action.insert_flag(flag);
 
         assert_eq!(expected, actual.unwrap_err());
     }
@@ -1195,6 +1285,7 @@ mod tests {
         let expected = Request {
             action: &action,
             arguments: Vec::new(),
+            flags: HashMap::new(),
         };
         let actual = Request::new(&action);
 
@@ -1281,6 +1372,39 @@ mod tests {
             .insert_argument("value")
             .unwrap_err();
 
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_flag must insert an Flag.
+    ///
+    /// The insert flag method must insert an Flag into the Request.
+    #[test]
+    fn request_insert_flag() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap();
+
+        let mut expected = Request::new(&action);
+        expected.flags.insert(String::from("my_flag"), true);
+
+        let actual = Request::new(&action).insert_flag("my_flag").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_flag must error if Flag is not found.
+    ///
+    /// The insert flag method must error if the Flag does not exist on the Action.
+    #[test]
+    fn request_insert_flag_not_found() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = Request::new(&action).insert_flag("not_my_flag").unwrap_err();
         assert_eq!(expected, actual);
     }
 
