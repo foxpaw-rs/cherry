@@ -668,6 +668,33 @@ impl<'a, T> Request<'a, T> {
     pub fn run(self) -> error::Result<T> {
         self.action.run(self)
     }
+
+    /// Validate the Request.
+    ///
+    /// Validate the Request by ensuring that enough Arguments, Fields and Flags
+    /// have been supplied.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Argument, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_argument(Argument::new("my_argument")?)?
+    ///                 .then(|_request| println!("Hello World"))
+    ///         )?;
+    ///     let request = cherry.parse_str("my_action value")?;
+    ///     match request.validate() {
+    ///        true => Ok(()),
+    ///        false => Err(cherry::Error::new("Invalid!")),
+    ///     }
+    /// }
+    /// ```
+    pub fn validate(&self) -> bool {
+        self.arguments.len() == self.action.arguments.len()
+    }
 }
 
 #[cfg(test)]
@@ -1021,7 +1048,11 @@ mod tests {
     fn request_insert_argument_filter_pass() {
         let action = Action::<()>::new("my_action")
             .unwrap()
-            .insert_argument(Argument::new("my_argument").unwrap().filter(|value| -> bool { value == "value" }))
+            .insert_argument(
+                Argument::new("my_argument")
+                    .unwrap()
+                    .filter(|value| -> bool { value == "value" }),
+            )
             .unwrap();
 
         let mut expected = Request::new(&action);
@@ -1040,7 +1071,11 @@ mod tests {
     fn request_insert_argument_filter_fail() {
         let action = Action::<()>::new("my_action")
             .unwrap()
-            .insert_argument(Argument::new("my_argument").unwrap().filter(|value| -> bool { value != "value" }))
+            .insert_argument(
+                Argument::new("my_argument")
+                    .unwrap()
+                    .filter(|value| -> bool { value != "value" }),
+            )
             .unwrap();
 
         let expected = Error::new("Todo: Help.");
@@ -1081,5 +1116,52 @@ mod tests {
         let request = Request::new(&action);
 
         assert_eq!(1, request.run().unwrap());
+    }
+
+    /// Request::validate must successfully validate the Action.
+    ///
+    /// The validate method on Request must return true if the correct number of
+    /// Arguments, Fields and Flags were supplied.
+    #[test]
+    fn request_validate() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+        let request = Request::new(&action).insert_argument("first").unwrap();
+
+        assert!(request.validate());
+    }
+
+    /// Request::validate must successfully validate the Action.
+    ///
+    /// The validate method on Request must return false if too many Arguments were
+    /// supplied.
+    #[test]
+    fn request_validate_argument_overflow() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+        let mut request = Request::new(&action);
+        request.arguments.push(String::from("first"));
+        request.arguments.push(String::from("second"));
+
+        assert!(!request.validate());
+    }
+
+    /// Request::validate must successfully validate the Action.
+    ///
+    /// The validate method on Request must return false if too few Arguments were
+    /// supplied.
+    #[test]
+    fn request_validate_argument_underflow() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+        let request = Request::new(&action);
+
+        assert!(!request.validate());
     }
 }

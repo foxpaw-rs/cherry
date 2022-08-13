@@ -156,13 +156,24 @@ impl<T> Cherry<T> {
         C: Iterator<Item = D>,
         D: AsRef<str> + Eq + Hash,
     {
+        // Select the Action.
         let keyword = command.next().ok_or_else(|| Error::new("Todo: Help."))?;
         let action = self
             .actions
             .get(keyword.as_ref())
             .ok_or_else(|| Error::new("Todo: Help."))?;
+        let mut request = Request::new(action);
 
-        Ok(Request::new(action))
+        // Obtain Arguments.
+        while let Some(value) = command.next() {
+            request = request.insert_argument(value.as_ref())?;
+        }
+
+        // Validate the Request.
+        match request.validate() {
+            true => Ok(request),
+            false => Err(Error::new("Todo: Help.")),
+        }
     }
 
     /// Load the command into Cherry from command line arguments.
@@ -343,6 +354,71 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
+    /// Cherry::parse must correctly parse Arguments.
+    ///
+    /// The parse method must correctly Parse a Request, linked to the correctly
+    /// selected Action type, and parse out the Arguments.
+    #[test]
+    fn cherry_parse_argument() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_argument(Argument::new("my_argument").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap())
+            .insert_argument("first")
+            .unwrap();
+        let actual = cherry.parse(["my_action", "first"].into_iter()).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must error if too many Arguments supplied.
+    ///
+    /// The parse method error if too many Arguments supplied to the Action.
+    #[test]
+    fn cherry_parse_argument_overflow() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_argument(Argument::new("my_argument").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = cherry
+            .parse(["my_action", "first", "second"].into_iter())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must error if too few Arguments supplied.
+    ///
+    /// The parse method error if too few Arguments supplied to the Action.
+    #[test]
+    fn cherry_parse_argument_underflow() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_argument(Argument::new("my_argument").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = cherry.parse(["my_action"].into_iter()).unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
     /// Cherry::parse_slice must correctly parse a Request
     ///
     /// The parse_slice method must correctly parse a Request, linked to the
@@ -354,7 +430,6 @@ mod tests {
             .unwrap();
 
         let expected = Request::new(&cherry.actions.get("my_action").unwrap());
-
         let actual = cherry.parse_slice(&["my_action"]).unwrap();
 
         assert_eq!(expected, actual);
@@ -387,7 +462,6 @@ mod tests {
             .unwrap();
 
         let expected = Request::new(&cherry.actions.get("my_action").unwrap());
-
         let actual = cherry.parse_str("my_action").unwrap();
 
         assert_eq!(expected, actual);
