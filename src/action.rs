@@ -8,6 +8,7 @@ use crate::error::{self, Error};
 use core::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 
+
 /// Action<T>.
 ///
 /// Actions are the customised application specific commands. Actions are
@@ -63,6 +64,9 @@ pub struct Action<T> {
     /// The description for this Action.
     description: Option<String>,
 
+    /// The Arguments this Action accepts.
+    arguments: Vec<Argument>,
+
     /// The callback method attached to the Action.
     then: Option<Box<dyn Fn(Request<T>) -> T>>,
 }
@@ -91,8 +95,9 @@ impl<T> Action<T> {
         }
 
         Ok(Action {
-            description: None,
             keyword: String::from(keyword),
+            description: None,
+            arguments: Vec::new(),
             then: None,
         })
     }
@@ -116,6 +121,33 @@ impl<T> Action<T> {
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(String::from(description));
         self
+    }
+
+    /// Insert an Argument into the Action.
+    ///
+    /// Insert an Argument onto the Action object.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Argument};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::<()>::new("my_action")?
+    ///         .insert_argument(Argument::new("my_argument")?)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Errors occur if attempting to insert an Argument with a blank (empty)
+    /// title.
+    pub fn insert_argument(mut self, argument: Argument) -> error::Result<Self> {
+        if argument.title.is_empty() {
+            return Err(Error::new("Argument must have a non-empty title."));
+        }
+
+        self.arguments.push(argument);
+        Ok(self)
     }
 
     /// Run this Action.
@@ -217,15 +249,22 @@ impl<T> Debug for Action<T> {
     /// # Error
     /// Will error if the underlying write macro fails.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Action {{ keyword: {:?}, description: {:?}, then: {:?} }}",
-            self.keyword,
-            self.description,
-            self.then
-                .as_ref()
-                .map_or_else(|| None, |_| Some("fn(Request<T>) -> T"))
-        )
+        match self.then {
+            Some(_) => write!(
+                f,
+                "Action {{ keyword: {:?}, description: {:?}, arguments: {:?}, then: Some(fn(Request<T>) -> T) }}",
+                self.keyword,
+                self.description,
+                self.arguments
+            ),
+            None => write!(
+                f,
+                "Action {{ keyword: {:?}, description: {:?}, arguments: {:?}, then: None }}",
+                self.keyword,
+                self.description,
+                self.arguments
+            ),
+        }
     }
 }
 
@@ -445,15 +484,20 @@ impl Debug for Argument {
     /// # Error
     /// Will error if the underlying write macro fails.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Argument {{ title: {:?}, description: {:?}, filter: {:?} }}",
-            self.title,
-            self.description,
-            self.filter
-                .as_ref()
-                .map_or_else(|| None, |_| Some("fn(&str) -> bool"))
-        )
+        match self.filter {
+            Some(_) => write!(
+                f,
+                "Argument {{ title: {:?}, description: {:?}, filter: Some(fn(&str) -> bool) }}",
+                self.title,
+                self.description,
+            ),
+            None => write!(
+                f,
+                "Argument {{ title: {:?}, description: {:?}, filter: None }}",
+                self.title,
+                self.description,
+            ),
+        }
     }
 }
 
@@ -613,8 +657,9 @@ mod tests {
     #[test]
     fn action_new() {
         let expected = Action {
-            description: None,
             keyword: String::from("my_action"),
+            description: None,
+            arguments: Vec::new(),
             then: None,
         };
         let actual = Action::<()>::new("my_action").unwrap();
@@ -645,6 +690,42 @@ mod tests {
             .description("My description.");
 
         assert_eq!(Some(String::from("My description.")), action.description);
+    }
+
+    /// Action::insert_argument must insert an Argument.
+    ///
+    /// The insert argument method must correctly insert an Argument into the
+    /// internal Vec.
+    #[test]
+    fn action_insert_argument() {
+        let mut vec = Vec::new();
+        vec.push(Argument::new("my_argument").unwrap());
+        
+        let mut expected = Action::<()>::new("my_action").unwrap();
+        expected.arguments = vec;
+
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_argument must error with empty Argument title.
+    ///
+    /// The insert argument method must error when attempting to insert an Argument
+    /// with an empty string title.
+    #[test]
+    fn action_insert_argument_empty() {
+        let expected = Error::new("Argument must have a non-empty title.");
+
+        let action = Action::<()>::new("my_action").unwrap();
+        let mut argument = Argument::new("my_argument").unwrap();
+        argument.title = String::from("");
+        let actual = action.insert_argument(argument);
+
+        assert_eq!(expected, actual.unwrap_err());
     }
 
     /// Action::run must correctly run the method.
@@ -734,8 +815,22 @@ mod tests {
         let action = Action::new("action")
             .unwrap()
             .description("Action description.")
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap()
             .then(|_| {});
-        let expected = "Action { keyword: \"action\", description: Some(\"Action description.\"), then: Some(\"fn(Request<T>) -> T\") }";
+        let expected = 
+            "Action { \
+                keyword: \"action\", \
+                description: Some(\"Action description.\"), \
+                arguments: [\
+                    Argument { \
+                        title: \"my_argument\", \
+                        description: None, \
+                        filter: None \
+                    }\
+                ], \
+                then: Some(fn(Request<T>) -> T) \
+            }";
         let actual = format!("{:?}", action);
 
         assert_eq!(expected, actual);
@@ -748,7 +843,13 @@ mod tests {
     #[test]
     fn action_fmt_missing_options() {
         let action = Action::<()>::new("action").unwrap();
-        let expected = "Action { keyword: \"action\", description: None, then: None }";
+        let expected = 
+            "Action { \
+                keyword: \"action\", \
+                description: None, \
+                arguments: [], \
+                then: None \
+            }";
         let actual = format!("{:?}", action);
 
         assert_eq!(expected, actual);
@@ -832,7 +933,12 @@ mod tests {
             .unwrap()
             .description("Argument description.")
             .filter(|_| -> bool { true });
-        let expected = "Argument { title: \"argument\", description: Some(\"Argument description.\"), filter: Some(\"fn(&str) -> bool\") }";
+        let expected = 
+            "Argument { \
+                title: \"argument\", \
+                description: Some(\"Argument description.\"), \
+                filter: Some(fn(&str) -> bool) \
+            }";
         let actual = format!("{:?}", argument);
 
         assert_eq!(expected, actual);

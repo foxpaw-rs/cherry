@@ -94,7 +94,7 @@ impl<T> Cherry<T> {
     /// ```
     ///
     /// # Error
-    /// Errors occur if attempting to insert an action with a blank (empty)
+    /// Errors occur if attempting to insert an Action with a blank (empty)
     /// keyword. Will also error if a collision occurs when attempting to insert.
     pub fn insert(mut self, action: Action<T>) -> Result<Self> {
         if action.keyword.is_empty() {
@@ -102,9 +102,7 @@ impl<T> Cherry<T> {
         }
 
         if self.actions.contains_key(&action.keyword) {
-            return Err(Error::new(
-                &(String::from("Key \'") + &action.keyword + "\' already exists."),
-            ));
+            return Err(Error::new(&format!("Action \'{}\' already exists.", &action.keyword)));
         }
 
         self.actions.insert(action.keyword.clone(), action);
@@ -411,12 +409,14 @@ mod tests {
     /// Cherry::insert must insert an Action.
     ///
     /// The insert method must correctly insert an Action into the internal
-    /// hashmap, using the keyword of the Action as the hashmap key.
+    /// HashMap, using the keyword of the Action as the HashMap key.
     #[test]
     fn cherry_insert() {
-        let mut map = HashMap::<_, action::Action<()>>::new();
-        map.insert(String::from("my_action"), Action::new("my_action").unwrap());
-        let expected = Cherry { actions: map };
+        let mut map = HashMap::new();
+        map.insert(String::from("my_action"), Action::<()>::new("my_action").unwrap());
+
+        let mut expected = Cherry::new();
+        expected.actions = map;
 
         let actual = Cherry::new()
             .insert(Action::new("my_action").unwrap())
@@ -447,7 +447,7 @@ mod tests {
     /// duplicate keyword.
     #[test]
     fn cherry_insert_collision() {
-        let expected = Error::new("Key \'my_action\' already exists.");
+        let expected = Error::new("Action \'my_action\' already exists.");
         let cherry = Cherry::<()>::new();
         let actual = cherry
             .insert(Action::new("my_action").unwrap())
