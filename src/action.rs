@@ -6,8 +6,8 @@
 
 use crate::error::{self, Error};
 use core::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
 use std::collections::HashMap;
+use std::fmt::{self, Debug, Formatter};
 
 /// Action<T>.
 ///
@@ -288,17 +288,25 @@ impl<T> Debug for Action<T> {
         match self.then {
             Some(_) => write!(
                 f,
-                "Action {{ keyword: {:?}, description: {:?}, arguments: {:?}, then: Some(fn(Request<T>) -> T) }}",
-                self.keyword,
-                self.description,
-                self.arguments
+                "Action {{ \
+                    keyword: {:?}, \
+                    description: {:?}, \
+                    arguments: {:?}, \
+                    flags: {:?}, \
+                    then: Some(fn(Request<T>) -> T) \
+                }}",
+                self.keyword, self.description, self.arguments, self.flags
             ),
             None => write!(
                 f,
-                "Action {{ keyword: {:?}, description: {:?}, arguments: {:?}, then: None }}",
-                self.keyword,
-                self.description,
-                self.arguments
+                "Action {{ \
+                    keyword: {:?}, \
+                    description: {:?}, \
+                    arguments: {:?}, \
+                    flags: {:?}, \
+                    then: None \
+                }}",
+                self.keyword, self.description, self.arguments, self.flags
             ),
         }
     }
@@ -636,11 +644,11 @@ pub struct Flag {
     /// The Flag title, the full specifier to utilise this Flag.
     title: String,
 
-    /// The single characer short specified for this Flag.
-    short: Option<char>,
-
     /// The Flag description for use in help text.
     description: Option<String>,
+
+    /// The single characer short specified for this Flag.
+    short: Option<char>,
 }
 
 impl Flag {
@@ -668,8 +676,8 @@ impl Flag {
 
         Ok(Self {
             title: String::from(title),
-            short: None,
             description: None,
+            short: None,
         })
     }
 
@@ -1084,6 +1092,8 @@ mod tests {
             .description("Action description.")
             .insert_argument(Argument::new("my_argument").unwrap())
             .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap()
             .then(|_| {});
         let expected = "Action { \
                 keyword: \"action\", \
@@ -1095,6 +1105,13 @@ mod tests {
                         filter: None \
                     }\
                 ], \
+                flags: {\
+                    \"my_flag\": Flag { \
+                        title: \"my_flag\", \
+                        description: None, \
+                        short: None \
+                    }\
+                }, \
                 then: Some(fn(Request<T>) -> T) \
             }";
         let actual = format!("{:?}", action);
@@ -1113,6 +1130,7 @@ mod tests {
                 keyword: \"action\", \
                 description: None, \
                 arguments: [], \
+                flags: {}, \
                 then: None \
             }";
         let actual = format!("{:?}", action);
@@ -1229,8 +1247,8 @@ mod tests {
     fn flag_new() {
         let expected = Flag {
             title: String::from("verbose"),
-            short: None,
             description: None,
+            short: None,
         };
         let actual = Flag::new("verbose").unwrap();
 
@@ -1255,9 +1273,7 @@ mod tests {
     /// the provided text.
     #[test]
     fn flag_description() {
-        let flag = Flag::new("verbose")
-            .unwrap()
-            .description("My description.");
+        let flag = Flag::new("verbose").unwrap().description("My description.");
 
         assert_eq!(Some(String::from("My description.")), flag.description);
     }
@@ -1268,9 +1284,7 @@ mod tests {
     /// provided character.
     #[test]
     fn flag_short() {
-        let flag = Flag::new("verbose")
-            .unwrap()
-            .short('v');
+        let flag = Flag::new("verbose").unwrap().short('v');
 
         assert_eq!(Some('v'), flag.short);
     }
@@ -1404,7 +1418,9 @@ mod tests {
             .unwrap();
 
         let expected = Error::new("Todo: Help.");
-        let actual = Request::new(&action).insert_flag("not_my_flag").unwrap_err();
+        let actual = Request::new(&action)
+            .insert_flag("not_my_flag")
+            .unwrap_err();
         assert_eq!(expected, actual);
     }
 
