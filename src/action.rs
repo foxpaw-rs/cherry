@@ -401,9 +401,9 @@ impl Argument {
         }
 
         Ok(Self {
+            title: String::from(title),
             description: None,
             filter: None,
-            title: String::from(title),
         })
     }
 
@@ -565,6 +565,122 @@ impl PartialOrd for Argument {
     /// ```
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.title.partial_cmp(&other.title)
+    }
+}
+
+/// Flag.
+///
+/// Flags are boolean switches. Flags are parsed by the Cherry instance by
+/// using the full specifier `--title` or the short version `-t`. If using the
+/// short version, multiple flags can be combined, `-a -b -c` is equivalent to
+/// `-abc`. Flags can be mixed with Fields, however, must come at the
+/// completion of the Arguemnt list. If a Flag is accidentally engaged multiple
+/// times during parsing of a command, it remains active.
+///
+/// # Example
+// Todo(Paul): Once Fields are fully implemented.
+// /// ```rust
+// /// use cherry::{Action, Field, Cherry};
+// ///
+// /// fn main() -> cherry::Result<()> {
+// ///     let cherry = Cherry::new()
+// ///         .insert(
+// ///             Action::new("my_action")?
+// ///                 .insert_field(
+// ///                     Field::new("verbose")?
+// ///                         .short('v')
+// ///                         .description("If this action is to be run in verbose mode.")
+// ///                 )?
+// ///                 .then(|result| -> bool { result.get_field("verbose") })
+// ///         )?;
+// ///
+// ///      // Will provide the status of the field
+// ///      cherry.parse_str("my_action --verbose");
+// ///      Ok(())
+// /// }
+// /// ```
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Flag {
+    /// The Flag title, the full specifier to utilise this Flag.
+    title: String,
+
+    /// The single characer short specified for this Flag.
+    short: Option<char>,
+
+    /// The Flag description for use in help text.
+    description: Option<String>,
+}
+
+impl Flag {
+    /// Create a new Flag.
+    ///
+    /// Create a new Flag instance.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Flag;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let flag = Flag::new("verbose")?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Will error when a blank (empty) title is provided. Flag must have a
+    /// non-empty title assigned to them.
+    pub fn new(title: &str) -> error::Result<Self> {
+        if title.is_empty() {
+            return Err(Error::new("Flag must have a non-empty title."));
+        }
+
+        Ok(Self {
+            title: String::from(title),
+            short: None,
+            description: None,
+        })
+    }
+
+    /// Update the description.
+    ///
+    /// The description of the Flag is used by the help text to assist users of
+    /// the application to understand it. A good description text allows users to
+    /// effectively use the application.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Flag;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let flag = Flag::new("verbose")?
+    ///        .description("To run this action in verbose mode.");
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn description(mut self, description: &str) -> Self {
+        self.description = Some(String::from(description));
+        self
+    }
+
+    /// Update the short tag.
+    ///
+    /// The short tag of the Flag is used to activate the Flag without requiring
+    /// the full title to be used. Flag short tags can also be combined under the
+    /// same prefix, e.g. `-a -b -c` is equivalent to `-abc`.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Flag;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let flag = Flag::new("verbose")?
+    ///        .short('v');
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn short(mut self, short: char) -> Self {
+        self.short = Some(short);
+        self
     }
 }
 
@@ -921,9 +1037,9 @@ mod tests {
     #[test]
     fn argument_new() {
         let expected = Argument {
+            title: String::from("Title"),
             description: None,
             filter: None,
-            title: String::from("Title"),
         };
         let actual = Argument::new("Title").unwrap();
 
@@ -1013,6 +1129,60 @@ mod tests {
         let actual = format!("{:?}", argument);
 
         assert_eq!(expected, actual);
+    }
+
+    /// Flag::new must create as per struct initialisation.
+    ///
+    /// The new method on Flag must create an object as per the struct
+    /// initialiser syntax.
+    #[test]
+    fn flag_new() {
+        let expected = Flag {
+            title: String::from("verbose"),
+            short: None,
+            description: None,
+        };
+        let actual = Flag::new("verbose").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Flag::new must error on empty title.
+    ///
+    /// The new method must correctly error when provided with an empty title
+    /// during initialisation.
+    #[test]
+    fn flag_new_empty() {
+        let expected = Error::new("Flag must have a non-empty title.");
+        let actual = Flag::new("");
+
+        assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Flag::description must correctly set the description.
+    ///
+    /// The description method must correctly set the internal Flag description to
+    /// the provided text.
+    #[test]
+    fn flag_description() {
+        let flag = Flag::new("verbose")
+            .unwrap()
+            .description("My description.");
+
+        assert_eq!(Some(String::from("My description.")), flag.description);
+    }
+
+    /// Flag::short must correctly set the short tag.
+    ///
+    /// The short method must correctly set the internal Flag short tag to the
+    /// provided character.
+    #[test]
+    fn flag_short() {
+        let flag = Flag::new("verbose")
+            .unwrap()
+            .short('v');
+
+        assert_eq!(Some('v'), flag.short);
     }
 
     /// Request::new must create as per struct initialisation.
