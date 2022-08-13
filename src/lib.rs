@@ -136,8 +136,30 @@ impl<T> Cherry<T> {
     /// ```
     ///
     /// # Example
-    /// ## Load command with arguments
-    /// Todo(Paul): Implement example with arguments once supported.
+    /// ## Arguments, Fields and Flags
+    /// Todo(Paul): Update with fields and Flags as supported.
+    /// ```rust
+    /// use cherry::{Action, Argument, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::<()>::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_argument(
+    ///                     Argument::new("my_argument")?
+    ///                         .description("My argument, must be longer than 3 characters.")
+    ///                         .filter(|value| -> bool { value.len() > 3 })
+    ///                  )?
+    ///                 .then(|_| println!("Hello World!"))
+    ///         )?;
+    ///
+    ///     // Usually, obtain arguments either from the environment or stdio.
+    ///     let args = ["my_action", "my_argument_value"].into_iter();
+    ///     let request = cherry.parse(args)?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     ///
     /// # Error
     /// Will error if no Action is found matching the command through:

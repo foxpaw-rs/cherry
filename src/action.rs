@@ -346,26 +346,26 @@ impl<T> PartialOrd for Action<T> {
 /// command provided to the Cherry instance was valid.
 ///
 /// # Example
-/// Todo(Paul): Uncomment once Argument implementation completed.
-// /// ```rust
-// /// use cherry::Action;
-// ///
-// /// fn main() -> cherry::Result<()> {
-// ///     let action = Action::new("my_action")?
-// ///         .push_argument(
-// ///              Argument::new("greeting")
-// ///                  .description("The greeting to display, must be hello.")
-// ///                  .filter(|value| { value == "hello" })
-// ///          )
-// ///         .then(|result| -> String { result.arguments[0] });
-// ///      let cherry = Cherry::new()
-// ///          .insert(action)?;
-// ///
-// ///      // Will provide value "Hello"
-// ///      cherry.parse_str("my_action hello")
-// ///      Ok(())
-// /// }
-// /// ```
+/// ```rust
+/// use cherry::{Action, Argument, Cherry};
+///
+/// fn main() -> cherry::Result<()> {
+///     let cherry = Cherry::new()
+///         .insert(
+///             Action::new("my_action")?
+///                 .insert_argument(
+///                     Argument::new("greeting")?
+///                         .description("The greeting to display, must be hello.")
+///                         .filter(|value| { value == "hello" })
+///                 )?
+///                 .then(|result| -> Option<String> { result.get_argument(0).cloned() })
+///         )?;
+///
+///      // Will provide value "Hello"
+///      cherry.parse_str("my_action hello");
+///      Ok(())
+/// }
+/// ```
 pub struct Argument {
     /// The Argument title for use in help text.
     pub title: String,
@@ -614,6 +614,15 @@ impl<'a, T> Request<'a, T> {
             action,
             arguments: Vec::new(),
         }
+    }
+
+    /// Get an Argument.
+    ///
+    /// Retrieve an Argument value at the specified index.
+    ///
+    /// # Example
+    pub fn get_argument(&self, index: usize) -> Option<&String> {
+        self.arguments.get(index)
     }
 
     /// Insert an Argument.
