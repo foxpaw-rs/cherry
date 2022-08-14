@@ -177,6 +177,9 @@ impl<T> Action<T> {
             return Err(Error::new("Flag must have a non-empty title."));
         }
 
+        if let Some(short) = flag.short {
+            self.flags.insert(String::from(short), flag.clone());
+        }
         self.flags.insert(flag.title.clone(), flag);
         Ok(self)
     }
@@ -819,10 +822,10 @@ impl<'a, T> Request<'a, T> {
     /// # Error
     /// Will error if the Flag is not found in the Action.
     pub(crate) fn insert_flag(mut self, flag: &str) -> error::Result<Self> {
-        match self.action.flags.contains_key(flag) {
-            false => Err(Error::new("Todo: Help.")),
-            true => {
-                self.flags.insert(String::from(flag), true);
+        match self.action.flags.get(flag) {
+            None => Err(Error::new("Todo: Help.")),
+            Some(value) => {
+                self.flags.insert(value.title.to_owned(), true);
                 Ok(self)
             }
         }

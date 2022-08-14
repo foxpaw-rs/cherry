@@ -162,11 +162,12 @@ impl<T> Cherry<T> {
     /// ```
     ///
     /// # Error
-    /// Will error if no Action is found matching the command through:
+    /// Will error if:
     ///
-    /// * Unknown keyword.
+    /// * No matching Action is found.
     /// * Incorrect number of arguments.
     /// * Unknown option or flag.
+    /// * Not providing a Field value.
     /// * Validation rule failure.
     ///
     /// Upon erroring while parsing, the most relevant help text will be returned.
@@ -186,9 +187,19 @@ impl<T> Cherry<T> {
             .ok_or_else(|| Error::new("Todo: Help."))?;
         let mut request = Request::new(action);
 
-        // Obtain Arguments.
-        while let Some(value) = command.next() {
-            request = request.insert_argument(value.as_ref())?;
+        // Obtain Arguments, Fields and Flags.
+        for next in command {
+            let value = next.as_ref();
+            request = if let Some(stripped) = value.strip_prefix("--") {
+                request.insert_flag(stripped)
+            } else if let Some(stripped) = value.strip_prefix('-') {
+                for character in stripped.chars() {
+                    request = request.insert_flag(character.encode_utf8(&mut [0u8; 4]))?;
+                }
+                Ok(request)
+            } else {
+                request.insert_argument(value)
+            }?
         }
 
         // Validate the Request.
@@ -378,7 +389,7 @@ mod tests {
 
     /// Cherry::parse must correctly parse Arguments.
     ///
-    /// The parse method must correctly Parse a Request, linked to the correctly
+    /// The parse method must correctly parse a Request, linked to the correctly
     /// selected Action type, and parse out the Arguments.
     #[test]
     fn cherry_parse_argument() {
@@ -395,6 +406,35 @@ mod tests {
             .insert_argument("first")
             .unwrap();
         let actual = cherry.parse(["my_action", "first"].into_iter()).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must handle attempting to parse late Arguments.
+    ///
+    /// The parse method must handle Arguments found after Flags and Fields have
+    /// been parsed.
+    #[test]
+    fn cherry_parse_argument_late() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_argument(Argument::new("my_argument").unwrap())
+                    .unwrap()
+                    .insert_flag(Flag::new("my_flag").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap())
+            .insert_argument("value")
+            .unwrap()
+            .insert_flag("my_flag")
+            .unwrap();
+        let actual = cherry
+            .parse(["my_action", "--my_flag", "value"].into_iter())
+            .unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -437,6 +477,83 @@ mod tests {
 
         let expected = Error::new("Todo: Help.");
         let actual = cherry.parse(["my_action"].into_iter()).unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must correctly parse Flags.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected Action type, and parse out the Flags.
+    #[test]
+    fn cherry_parse_flag() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_flag(Flag::new("my_flag").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap())
+            .insert_flag("my_flag")
+            .unwrap();
+        let actual = cherry
+            .parse(["my_action", "--my_flag"].into_iter())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must correctly parse short Flags.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected Action type, and parse out the Flags when using the short tag.
+    #[test]
+    fn cherry_parse_flag_short() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_flag(Flag::new("my_flag").unwrap().short('m'))
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap())
+            .insert_flag("my_flag")
+            .unwrap();
+        let actual = cherry.parse(["my_action", "-m"].into_iter()).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must correctly parse combined short Flags.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected Action type, and parse out the Flags when using the short tag.
+    #[test]
+    fn cherry_parse_flag_short_combined() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_flag(Flag::new("first").unwrap().short('a'))
+                    .unwrap()
+                    .insert_flag(Flag::new("second").unwrap().short('b'))
+                    .unwrap()
+                    .insert_flag(Flag::new("third").unwrap().short('c'))
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap())
+            .insert_flag("first")
+            .unwrap()
+            .insert_flag("third")
+            .unwrap();
+        let actual = cherry.parse(["my_action", "-ac"].into_iter()).unwrap();
 
         assert_eq!(expected, actual);
     }
