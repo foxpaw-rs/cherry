@@ -621,27 +621,26 @@ impl PartialOrd for Argument {
 /// times during parsing of a command, it remains active.
 ///
 /// # Example
-// Todo(Paul): Once Fields are fully implemented.
-// /// ```rust
-// /// use cherry::{Action, Field, Cherry};
-// ///
-// /// fn main() -> cherry::Result<()> {
-// ///     let cherry = Cherry::new()
-// ///         .insert(
-// ///             Action::new("my_action")?
-// ///                 .insert_field(
-// ///                     Field::new("verbose")?
-// ///                         .short('v')
-// ///                         .description("If this action is to be run in verbose mode.")
-// ///                 )?
-// ///                 .then(|result| -> bool { result.get_field("verbose") })
-// ///         )?;
-// ///
-// ///      // Will provide the status of the field
-// ///      cherry.parse_str("my_action --verbose");
-// ///      Ok(())
-// /// }
-// /// ```
+/// ```rust
+/// use cherry::{Action, Flag, Cherry};
+///
+/// fn main() -> cherry::Result<()> {
+///     let cherry = Cherry::new()
+///         .insert(
+///             Action::new("my_action")?
+///                 .insert_flag(
+///                     Flag::new("verbose")?
+///                         .short('v')
+///                         .description("If this action is to be run in verbose mode.")
+///                 )?
+///                 .then(|result| -> bool { *result.get_flag("verbose").unwrap_or(&false) })
+///         )?;
+///
+///      // Will provide the status of the field
+///      cherry.parse_str("my_action --verbose");
+///      Ok(())
+/// }
+/// ```
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Flag {
     /// The Flag title, the full specifier to utilise this Flag.
@@ -788,8 +787,51 @@ impl<'a, T> Request<'a, T> {
     /// Retrieve an Argument value at the specified index.
     ///
     /// # Example
+    /// ```rust
+    /// use cherry::{Action, Argument, Cherry, Error};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_argument(Argument::new("my_argument")?)?
+    ///                 .then(|request| {
+    ///                     // Do something...
+    ///                 })
+    ///         )?;
+    ///     let request = cherry.parse_str("my_action value")?;
+    ///     request.get_argument(0).ok_or_else(|| Error::new("Missing arugmnet 0."))?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn get_argument(&self, index: usize) -> Option<&String> {
         self.arguments.get(index)
+    }
+
+    /// Get a Flag.
+    ///
+    /// Retrieve a Flag value.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Cherry, Error, Flag};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_flag(Flag::new("my_flag")?)?
+    ///                 .then(|request| {
+    ///                     // Do something...
+    ///                 })
+    ///         )?;
+    ///     let request = cherry.parse_str("my_action --my_flag")?;
+    ///     request.get_flag("my_flag").ok_or_else(|| Error::new("Missing flag 'my_flag'."))?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn get_flag(&self, key: &str) -> Option<&bool> {
+        self.flags.get(key)
     }
 
     /// Insert an Argument.
