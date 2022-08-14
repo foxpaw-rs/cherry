@@ -775,7 +775,11 @@ impl<'a, T> Request<'a, T> {
         Self {
             action,
             arguments: Vec::new(),
-            flags: HashMap::new(),
+            flags: action
+                .flags
+                .values()
+                .map(|flag| (flag.title.to_owned(), false))
+                .collect(),
         }
     }
 
@@ -1303,6 +1307,32 @@ mod tests {
             action: &action,
             arguments: Vec::new(),
             flags: HashMap::new(),
+        };
+        let actual = Request::new(&action);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::new must handle a full Action.
+    ///
+    /// The new method on Request must create an object, handling a fully
+    /// initialised Action.
+    #[test]
+    fn request_new_full_action() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap().short('m'))
+            .unwrap();
+
+        let mut flags = HashMap::new();
+        flags.insert(String::from("my_flag"), false);
+
+        let expected = Request {
+            action: &action,
+            arguments: Vec::new(),
+            flags,
         };
         let actual = Request::new(&action);
 
