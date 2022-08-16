@@ -611,14 +611,311 @@ impl PartialOrd for Argument {
     }
 }
 
+/// Field.
+///
+/// Fields are optional Arguments. Flags are parsed by the Cherry instance by
+/// using the full specifier `--title` or the short version `-t`, followed by
+/// the Field value. If a Field is accidentally specified multiple times during
+/// parsing of a command, the final value will remain..
+///
+/// # Example
+/// Todo(Paul): When Fields complete.
+// /// ```rust
+// /// use cherry::{Action, Field, Cherry};
+// ///
+// /// fn main() -> cherry::Result<()> {
+// ///     let cherry = Cherry::new()
+// ///         .insert(
+// ///             Action::new("my_action")?
+// ///                 .insert_flag(
+// ///                     Field::new("username")?
+// ///                         .short('u')
+// ///                         .description("The username, must be longer that 3 characters.")
+// ///                         .default("Admin")
+// ///                         .fiter(|value| -> bool { value.len() > 3 })
+// ///                 )?
+// ///                 .then(|result| -> String {
+// ///                     String::from(result.get_field("username").unwrap_or("")?)
+// ///                 })
+// ///         )?;
+// ///
+// ///      // Will provide the status of the field
+// ///      cherry.parse_str("my_action --username Guest");
+// ///      Ok(())
+// /// }
+// /// ```
+pub struct Field {
+    /// The Field title, the full specifier to utilise this Field.
+    title: String,
+
+    /// The Field description for use in help text.
+    description: Option<String>,
+
+    /// The single characer short specified for this Field.
+    short: Option<char>,
+
+    /// The Field default value.
+    default: Option<String>,
+
+    /// The filter to determine if the provided value is valid.
+    filter: Option<Box<dyn Fn(&str) -> bool>>,
+}
+
+impl Field {
+    /// Create a new Field.
+    ///
+    /// Create a new Field instance.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let field = Field::new("username")?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Will error when a blank (empty) title is provided. Field must have a
+    /// non-empty title assigned to them.
+    pub fn new(title: &str) -> error::Result<Self> {
+        if title.is_empty() {
+            return Err(Error::new("Field must have a non-empty title."));
+        }
+
+        Ok(Self {
+            title: String::from(title),
+            description: None,
+            short: None,
+            default: None,
+            filter: None,
+        })
+    }
+
+    /// Set the default for thie Field.
+    ///
+    /// The default value of the Field can be set, to provide sane defaults to the
+    /// application logic.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let field = Field::new("username")?
+    ///        .default("Admin");
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn default(mut self, default: &str) -> Self {
+        self.default = Some(String::from(default));
+        self
+    }
+
+    /// Update the description.
+    ///
+    /// The description of the Field is used by the help text to assist users of
+    /// the application to understand it. A good description text allows users to
+    /// effectively use the application.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let field = Field::new("username")?
+    ///        .description("The username to use.");
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn description(mut self, description: &str) -> Self {
+        self.description = Some(String::from(description));
+        self
+    }
+
+    /// Update the filter callback on the Field.
+    ///
+    /// The filter callback of the Field is the method or closure that is called
+    /// when this Field is parsed from the input to determine if the input is
+    /// valid.
+    ///
+    /// # Example
+    /// ## Using a method
+    /// ```rust
+    /// use cherry::{Field};
+    ///
+    /// fn is_valid(value: &str) -> bool {
+    ///     value == "Hello"
+    /// }
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let field = Field::new("my_field")?
+    ///         .filter(is_valid);
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// ## Using a closure
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let field = Field::new("my_field")?
+    ///         .filter(|val: &str| -> bool {
+    ///             // Implement application logic.
+    ///             true
+    ///         });
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn filter(mut self, filter: impl Fn(&str) -> bool + 'static) -> Self {
+        self.filter = Some(Box::new(filter));
+        self
+    }
+
+    /// Update the short tag.
+    ///
+    /// The short tag of the Field is used to activate the Field without requiring
+    /// the full title to be used.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let field = Field::new("username")?
+    ///        .short('u');
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn short(mut self, short: char) -> Self {
+        self.short = Some(short);
+        self
+    }
+}
+
+impl Debug for Field {
+    /// Format an Field for debug.
+    ///
+    /// Formats the Field for debug printing.
+    ///
+    /// # Example
+    /// ```
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let argument = Field::new("argument")?;
+    ///     println!("{:?}", argument);
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Will error if the underlying write macro fails.
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self.filter {
+            Some(_) => write!(
+                f,
+                "Field {{ \
+                    title: {:?}, \
+                    description: {:?}, \
+                    short: {:?}, \
+                    default: {:?}, \
+                    filter: Some(fn(&str) -> bool) \
+                }}",
+                self.title, self.description, self.short, self.default,
+            ),
+            None => write!(
+                f,
+                "Field {{ \
+                    title: {:?}, \
+                    description: {:?}, \
+                    short: {:?}, \
+                    default: {:?}, \
+                    filter: None \
+                }}",
+                self.title, self.description, self.short, self.default,
+            ),
+        }
+    }
+}
+
+impl Eq for Field {}
+
+impl Ord for Field {
+    /// Ordering implementation.
+    ///
+    /// Defines how Fields should be ordered using comparison operators.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Field::new("a")?;
+    ///     let last = Field::new("z")?;
+    ///     assert!(first < last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.title.cmp(&other.title)
+    }
+}
+
+impl PartialEq for Field {
+    /// Partial Equality implementation.
+    ///
+    /// Defines how Fields should be considered equal.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Field::new("a")?;
+    ///     let last = Field::new("a")?;
+    ///     assert_eq!(first, last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn eq(&self, other: &Self) -> bool {
+        self.title == other.title
+            && self.description == other.description
+            && self.short == other.short
+            && self.default == other.default
+    }
+}
+
+impl PartialOrd for Field {
+    /// Partial Ordering implementation.
+    ///
+    /// Defines how Fields should be ordered using comparison operators.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Field;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let first = Field::new("a")?;
+    ///     let last = Field::new("z")?;
+    ///     assert!(first < last);
+    ///     Ok(())
+    /// }
+    /// ```
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.title.partial_cmp(&other.title)
+    }
+}
+
 /// Flag.
 ///
 /// Flags are boolean switches. Flags are parsed by the Cherry instance by
 /// using the full specifier `--title` or the short version `-t`. If using the
 /// short version, multiple flags can be combined, `-a -b -c` is equivalent to
-/// `-abc`. Flags can be mixed with Fields, however, must come at the
-/// completion of the Arguemnt list. If a Flag is accidentally engaged multiple
-/// times during parsing of a command, it remains active.
+/// `-abc`. If a Flag is accidentally engaged multiple times during parsing of
+/// a command, it remains active.
 ///
 /// # Example
 /// ```rust
@@ -1233,7 +1530,7 @@ mod tests {
     /// The filter method must correctly set the internal Argument filter callback when
     /// passed a closure.
     #[test]
-    fn action_filter_closure() {
+    fn argument_filter_closure() {
         let argument = Argument::new("my_argument")
             .unwrap()
             .filter(|value: &str| -> bool { value == "Hello" });
@@ -1284,6 +1581,141 @@ mod tests {
         let argument = Argument::new("argument").unwrap();
         let expected = "Argument { title: \"argument\", description: None, filter: None }";
         let actual = format!("{:?}", argument);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Field::new must create as per struct initialisation.
+    ///
+    /// The new method on Field must create an object as per the struct
+    /// initialiser syntax.
+    #[test]
+    fn field_new() {
+        let expected = Field {
+            title: String::from("Title"),
+            description: None,
+            short: None,
+            default: None,
+            filter: None,
+        };
+        let actual = Field::new("Title").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Field::new must error on empty title.
+    ///
+    /// The new method must correctly error when provided with an empty title
+    /// during initialisation.
+    #[test]
+    fn field_new_empty() {
+        let expected = Error::new("Field must have a non-empty title.");
+        let actual = Field::new("");
+
+        assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Field::description must correctly set the description.
+    ///
+    /// The description method must correctly set the internal Field description
+    /// to the provided text.
+    #[test]
+    fn field_description() {
+        let field = Field::new("my_field")
+            .unwrap()
+            .description("My description.");
+
+        assert_eq!(Some(String::from("My description.")), field.description);
+    }
+
+    /// Field::short must correctly set the short.
+    ///
+    /// The short method must correctly set the internal Field short to the
+    /// provided character.
+    #[test]
+    fn field_short() {
+        let field = Field::new("my_field").unwrap().short('m');
+
+        assert_eq!(Some('m'), field.short);
+    }
+
+    /// Field::default must correctly set the default.
+    ///
+    /// The default method must correctly set the internal Field default to the
+    /// provided text.
+    #[test]
+    fn field_default() {
+        let field = Field::new("my_field").unwrap().default("My default.");
+
+        assert_eq!(Some(String::from("My default.")), field.default);
+    }
+
+    /// Field::filter must correctly set the filter callback with a closure.
+    ///
+    /// The filter method must correctly set the internal Field filter callback when
+    /// passed a closure.
+    #[test]
+    fn field_filter_closure() {
+        let field = Field::new("my_field")
+            .unwrap()
+            .filter(|value: &str| -> bool { value == "Hello" });
+
+        assert!(field.filter.is_some());
+    }
+
+    /// Field::filter must correctly set the filter callback with a method.
+    ///
+    /// The filter method must correctly set the internal Field filter callback when
+    /// passed a method.
+    #[test]
+    fn field_filter_method() {
+        fn callback(value: &str) -> bool {
+            value == "Hello"
+        }
+        let field = Field::new("my_field").unwrap().filter(callback);
+
+        assert!(field.filter.is_some());
+    }
+
+    /// Field::fmt must debug the Field.
+    ///
+    /// The custom implementation of the Debug::fmt method must correctly display
+    /// the Field.
+    #[test]
+    fn field_fmt() {
+        let field = Field::new("field")
+            .unwrap()
+            .description("Field description.")
+            .short('f')
+            .default("value")
+            .filter(|_| -> bool { true });
+        let expected = "Field { \
+                title: \"field\", \
+                description: Some(\"Field description.\"), \
+                short: Some('f'), \
+                default: Some(\"value\"), \
+                filter: Some(fn(&str) -> bool) \
+            }";
+        let actual = format!("{:?}", field);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Field::fmt must handle a missing Options.
+    ///
+    /// The custom implementation of the Debug::fmt method must correctly display
+    /// the Field when all Options are None.
+    #[test]
+    fn field_fmt_missing_options() {
+        let field = Field::new("field").unwrap();
+        let expected = "Field { \
+            title: \"field\", \
+            description: None, \
+            short: None, \
+            default: None, \
+            filter: None \
+        }";
+        let actual = format!("{:?}", field);
 
         assert_eq!(expected, actual);
     }
