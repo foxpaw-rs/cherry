@@ -8,6 +8,7 @@ use crate::error::{self, Error};
 use core::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
+use std::rc::Rc;
 
 /// Action<T>.
 ///
@@ -67,6 +68,9 @@ pub struct Action<T> {
     /// The Arguments this Action accepts.
     arguments: Vec<Argument>,
 
+    /// The Fields this Action accepts.
+    fields: HashMap<String, Field>,
+
     /// The Flags this Action accepts.
     flags: HashMap<String, Flag>,
 
@@ -101,6 +105,7 @@ impl<T> Action<T> {
             keyword: String::from(keyword),
             description: None,
             arguments: Vec::new(),
+            fields: HashMap::new(),
             flags: HashMap::new(),
             then: None,
         })
@@ -154,6 +159,68 @@ impl<T> Action<T> {
         Ok(self)
     }
 
+    /// Insert a Field into the Action.
+    ///
+    /// Insert a Field onto the Action object.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Field};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::<()>::new("my_action")?
+    ///         .insert_field(Field::new("my_field")?)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Errors occur if attempting to insert a Field with a blank (empty)
+    /// title. Will also error if sharing a title or short with a Flag or existing
+    /// Field.
+    pub fn insert_field(mut self, field: Field) -> error::Result<Self> {
+        if field.title.is_empty() {
+            return Err(Error::new("Field must have a non-empty title."));
+        }
+
+        if self.fields.contains_key(&field.title) {
+            return Err(Error::new(&format!(
+                "Action '{}' already contains a Field '{}'.",
+                self.keyword, &field.title
+            )));
+        }
+
+        if self.flags.contains_key(&field.title) {
+            return Err(Error::new(&format!(
+                "Action '{}' already contains a Flag '{}'.",
+                self.keyword, &field.title
+            )));
+        }
+
+        if let Some(short) = field.short {
+            let value = String::from(short);
+            if self.fields.contains_key(&value) {
+                return Err(Error::new(&format!(
+                    "Action '{}' already contains a Field with short tag '{}'.",
+                    self.keyword, &value
+                )));
+            }
+
+            if self.flags.contains_key(&value) {
+                return Err(Error::new(&format!(
+                    "Action '{}' already contains a Flag with short tag '{}'.",
+                    self.keyword, &value
+                )));
+            }
+        }
+
+        if let Some(short) = field.short {
+            self.fields.insert(String::from(short), field.clone());
+        }
+        self.fields.insert(field.title.clone(), field);
+        Ok(self)
+    }
+
     /// Insert a Flag into the Action.
     ///
     /// Insert a Flag onto the Action object.
@@ -170,11 +237,43 @@ impl<T> Action<T> {
     /// ```
     ///
     /// # Error
-    /// Errors occur if attempting to insert an Flag with a blank (empty)
-    /// title.
+    /// Errors occur if attempting to insert a Flag with a blank (empty)
+    /// title. Will also error if sharing a title or short with a Field or existing
+    /// Flag.
     pub fn insert_flag(mut self, flag: Flag) -> error::Result<Self> {
         if flag.title.is_empty() {
             return Err(Error::new("Flag must have a non-empty title."));
+        }
+
+        if self.flags.contains_key(&flag.title) {
+            return Err(Error::new(&format!(
+                "Action '{}' already contains a Flag '{}'.",
+                self.keyword, &flag.title
+            )));
+        }
+
+        if self.fields.contains_key(&flag.title) {
+            return Err(Error::new(&format!(
+                "Action '{}' already contains a Field '{}'.",
+                self.keyword, &flag.title
+            )));
+        }
+
+        if let Some(short) = flag.short {
+            let value = String::from(short);
+            if self.flags.contains_key(&value) {
+                return Err(Error::new(&format!(
+                    "Action '{}' already contains a Flag with short tag '{}'.",
+                    self.keyword, &value
+                )));
+            }
+
+            if self.fields.contains_key(&value) {
+                return Err(Error::new(&format!(
+                    "Action '{}' already contains a Field with short tag '{}'.",
+                    self.keyword, &value
+                )));
+            }
         }
 
         if let Some(short) = flag.short {
@@ -409,6 +508,7 @@ impl<T> PartialOrd for Action<T> {
 ///      Ok(())
 /// }
 /// ```
+#[derive(Clone)]
 pub struct Argument {
     /// The Argument title for use in help text.
     pub title: String,
@@ -417,7 +517,7 @@ pub struct Argument {
     description: Option<String>,
 
     /// The filter to determine if the provided value is valid.
-    filter: Option<Box<dyn Fn(&str) -> bool>>,
+    filter: Option<Rc<dyn Fn(&str) -> bool>>,
 }
 
 impl Argument {
@@ -507,7 +607,7 @@ impl Argument {
     /// }
     /// ```
     pub fn filter(mut self, filter: impl Fn(&str) -> bool + 'static) -> Self {
-        self.filter = Some(Box::new(filter));
+        self.filter = Some(Rc::new(filter));
         self
     }
 }
@@ -644,6 +744,7 @@ impl PartialOrd for Argument {
 // ///      Ok(())
 // /// }
 // /// ```
+#[derive(Clone)]
 pub struct Field {
     /// The Field title, the full specifier to utilise this Field.
     title: String,
@@ -658,7 +759,7 @@ pub struct Field {
     default: Option<String>,
 
     /// The filter to determine if the provided value is valid.
-    filter: Option<Box<dyn Fn(&str) -> bool>>,
+    filter: Option<Rc<dyn Fn(&str) -> bool>>,
 }
 
 impl Field {
@@ -770,7 +871,7 @@ impl Field {
     /// }
     /// ```
     pub fn filter(mut self, filter: impl Fn(&str) -> bool + 'static) -> Self {
-        self.filter = Some(Box::new(filter));
+        self.filter = Some(Rc::new(filter));
         self
     }
 
@@ -796,7 +897,7 @@ impl Field {
 }
 
 impl Debug for Field {
-    /// Format an Field for debug.
+    /// Format a Field for debug.
     ///
     /// Formats the Field for debug printing.
     ///
@@ -1244,6 +1345,7 @@ mod tests {
             keyword: String::from("my_action"),
             description: None,
             arguments: Vec::new(),
+            fields: HashMap::new(),
             flags: HashMap::new(),
             then: None,
         };
@@ -1313,7 +1415,111 @@ mod tests {
         assert_eq!(expected, actual.unwrap_err());
     }
 
-    /// Action::insert_flag must insert an Flag.
+    /// Action::insert_field must insert a Field.
+    ///
+    /// The insert field method must correctly insert a Field into the internal
+    /// HashMap.
+    #[test]
+    fn action_insert_field() {
+        let mut map = HashMap::new();
+        map.insert(String::from("my_field"), Field::new("my_field").unwrap());
+
+        let mut expected = Action::<()>::new("my_action").unwrap();
+        expected.fields = map;
+
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_field must error with empty Field title.
+    ///
+    /// The insert field method must error when attempting to insert a Field with
+    /// an empty string title.
+    #[test]
+    fn action_insert_field_empty() {
+        let expected = Error::new("Field must have a non-empty title.");
+
+        let action = Action::<()>::new("my_action").unwrap();
+        let mut field = Field::new("my_field").unwrap();
+        field.title = String::from("");
+        let actual = action.insert_field(field);
+
+        assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Action::insert_field must error on a Field collision.
+    ///
+    /// The insert field method must error when attempting to insert a Field when a
+    /// Field with that title already exists on the Action.
+    #[test]
+    fn action_insert_field_collide_field() {
+        let expected = Error::new("Action 'my_action' already contains a Field 'my_field'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_field must error on a Field short collision.
+    ///
+    /// The insert field method must error when attempting to insert a Field with a
+    /// short when a Field with that short already exists on the Action.
+    #[test]
+    fn action_insert_field_collide_field_short() {
+        let expected = Error::new("Action 'my_action' already contains a Field with short tag 'm'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap().short('m'))
+            .unwrap()
+            .insert_field(Field::new("another_field").unwrap().short('m'))
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_field must error on a Flag collision.
+    ///
+    /// The insert field method must error when attempting to insert a Field when a
+    /// Flag with that title already exists on the Action.
+    #[test]
+    fn action_insert_field_collide_flag() {
+        let expected = Error::new("Action 'my_action' already contains a Flag 'collide'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("collide").unwrap())
+            .unwrap()
+            .insert_field(Field::new("collide").unwrap())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_field must error on a Flag short collision.
+    ///
+    /// The insert field method must error when attempting to insert a Field with a
+    /// short when a Flag with that short already exists on the Action.
+    #[test]
+    fn action_insert_field_collide_flag_short() {
+        let expected = Error::new("Action 'my_action' already contains a Flag with short tag 'm'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap().short('m'))
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap().short('m'))
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_flag must insert a Flag.
     ///
     /// The insert flag method must correctly insert a Flag into the internal
     /// HashMap.
@@ -1335,7 +1541,7 @@ mod tests {
 
     /// Action::insert_flag must error with empty Flag title.
     ///
-    /// The insert flag method must error when attempting to insert an Flag with an
+    /// The insert flag method must error when attempting to insert a Flag with an
     /// empty string title.
     #[test]
     fn action_insert_flag_empty() {
@@ -1347,6 +1553,74 @@ mod tests {
         let actual = action.insert_flag(flag);
 
         assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Action::insert_flag must error on a Flag collision.
+    ///
+    /// The insert flag method must error when attempting to insert a Flag when a
+    /// Flag with that title already exists on the Action.
+    #[test]
+    fn action_insert_flag_collide_flag() {
+        let expected = Error::new("Action 'my_action' already contains a Flag 'my_flag'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_flag must error on a Flag short collision.
+    ///
+    /// The insert flag method must error when attempting to insert a Flag with a
+    /// short when a Flag with that short already exists on the Action.
+    #[test]
+    fn action_insert_flag_collide_flag_short() {
+        let expected = Error::new("Action 'my_action' already contains a Flag with short tag 'm'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap().short('m'))
+            .unwrap()
+            .insert_flag(Flag::new("another_flag").unwrap().short('m'))
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_flag must error on a Field collision.
+    ///
+    /// The insert flag method must error when attempting to insert a Flag when a
+    /// Field with that title already exists on the Action.
+    #[test]
+    fn action_insert_flag_collide_field() {
+        let expected = Error::new("Action 'my_action' already contains a Field 'collide'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("collide").unwrap())
+            .unwrap()
+            .insert_flag(Flag::new("collide").unwrap())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_flag must error on a Field short collision.
+    ///
+    /// The insert flag method must error when attempting to insert a Flag with a
+    /// short when a Field with that short already exists on the Action.
+    #[test]
+    fn action_insert_flag_collide_field_short() {
+        let expected = Error::new("Action 'my_action' already contains a Field with short tag 'm'.");
+        let actual = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap().short('m'))
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap().short('m'))
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
     }
 
     /// Action::run must correctly run the method.
@@ -1896,9 +2170,9 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
-    /// Request::insert_flag must insert an Flag.
+    /// Request::insert_flag must insert a Flag.
     ///
-    /// The insert flag method must insert an Flag into the Request.
+    /// The insert flag method must insert a Flag into the Request.
     #[test]
     fn request_insert_flag() {
         let action = Action::<()>::new("my_action")
