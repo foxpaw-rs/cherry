@@ -1160,6 +1160,9 @@ pub struct Request<'a, T> {
     /// The Argument values loaded into this Request.
     arguments: Vec<String>,
 
+    /// The Field values loaded into this Request.
+    fields: HashMap<String, Option<String>>,
+
     /// The Flag values loaded into this Request.
     flags: HashMap<String, bool>,
 }
@@ -1172,6 +1175,11 @@ impl<'a, T> Request<'a, T> {
         Self {
             action,
             arguments: Vec::new(),
+            fields: action
+                .fields
+                .values()
+                .map(|field| (field.title.to_owned(), field.default.clone()))
+                .collect(),
             flags: action
                 .flags
                 .values()
@@ -1253,6 +1261,25 @@ impl<'a, T> Request<'a, T> {
             Some(callback) if !callback(argument) => Err(Error::new("Todo: Help.")),
             _ => {
                 self.arguments.push(String::from(argument));
+                Ok(self)
+            }
+        }
+    }
+
+    /// Insert a Field.
+    ///
+    /// Insert a Field into this Request. Fields are defined on the Action and the
+    /// actual Field values loaded into the Request.
+    ///
+    /// # Error
+    /// Will error if the Flag is not found in the Action, or if a Field filter
+    /// method fails.
+    pub(crate) fn insert_field(mut self, field: &str, value: &str) -> error::Result<Self> {
+        let field = self.action.fields.get(field).ok_or_else(|| Error::new("Todo: Help."))?;
+        match &field.filter {
+            Some(callback) if !callback(value) => Err(Error::new("Todo: Help.")),
+            _ => {
+                self.fields.insert(field.title.to_owned(), Some(String::from(value)));
                 Ok(self)
             }
         }
@@ -2054,6 +2081,7 @@ mod tests {
         let expected = Request {
             action: &action,
             arguments: Vec::new(),
+            fields: HashMap::new(),
             flags: HashMap::new(),
         };
         let actual = Request::new(&action);
@@ -2071,8 +2099,16 @@ mod tests {
             .unwrap()
             .insert_argument(Argument::new("my_argument").unwrap())
             .unwrap()
+            .insert_field(Field::new("my_field").unwrap().short('f'))
+            .unwrap()
+            .insert_field(Field::new("my_field_default").unwrap().default("default"))
+            .unwrap()
             .insert_flag(Flag::new("my_flag").unwrap().short('m'))
             .unwrap();
+
+        let mut fields = HashMap::new();
+        fields.insert(String::from("my_field"), None);
+        fields.insert(String::from("my_field_default"), Some(String::from("default")));
 
         let mut flags = HashMap::new();
         flags.insert(String::from("my_flag"), false);
@@ -2080,6 +2116,7 @@ mod tests {
         let expected = Request {
             action: &action,
             arguments: Vec::new(),
+            fields,
             flags,
         };
         let actual = Request::new(&action);
@@ -2167,6 +2204,62 @@ mod tests {
             .insert_argument("value")
             .unwrap_err();
 
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_field must insert a Field.
+    ///
+    /// The insert field method must insert a Field into the Request.
+    #[test]
+    fn request_insert_field() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap();
+
+        let mut expected = Request::new(&action);
+        expected.fields.insert(String::from("my_field"), Some(String::from("value")));
+
+        let actual = Request::new(&action).insert_field("my_field", "value").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_field must error if Field is not found.
+    ///
+    /// The insert field method must error if the Field does not exist on the Action.
+    #[test]
+    fn request_insert_field_not_found() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = Request::new(&action)
+            .insert_field("not_my_field", "value")
+            .unwrap_err();
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::insert_field must error if Field filter fails.
+    ///
+    /// The insert field method must error if the Field's valdiation filter fails.
+    #[test]
+    fn request_insert_field_fail_filter() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(
+                Field::new("my_field")
+                .unwrap()
+                .filter(|_| -> bool { false })
+            )
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = Request::new(&action)
+            .insert_field("my_field", "value")
+            .unwrap_err();
         assert_eq!(expected, actual);
     }
 
