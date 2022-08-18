@@ -1269,6 +1269,91 @@ impl<'a, T> Request<'a, T> {
         self.flags.get(key)
     }
 
+    /// Query if an Argument exists.
+    ///
+    /// Query for an Argument at the specified index.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Argument, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_argument(Argument::new("my_argument")?)?
+    ///                 .then(|request| {
+    ///                     // Do something...
+    ///                 })
+    ///         )?;
+    ///     let request = cherry.parse_str("my_action value")?;
+    ///     if request.has_argument(0) {
+    ///         // Do something...
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn has_argument(&self, index: usize) -> bool {
+        index < self.arguments.len()
+    }
+
+    /// Query if a Field exists.
+    ///
+    /// Query for a Field with the specified key.
+    ///
+    /// # Example
+    /// Todo(Paul): Uncomment once Field parse implemented.
+    /// ```rust
+    /// use cherry::{Action, Cherry, Field};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_field(Field::new("my_field")?)?
+    ///                 .then(|request| {
+    ///                     // Do something...
+    ///                 })
+    ///         )?;
+    // ///     let request = cherry.parse_str("my_action --my_field value")?;
+    // ///     if request.has_field("my_field") {
+    ///         // Do something...
+    // ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn has_field(&self, key: &str) -> bool {
+        self.fields.contains_key(key)
+    }
+
+    /// Query if a Flag exists.
+    ///
+    /// Query for a Flag with the specified key.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::{Action, Cherry, Flag};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_flag(Flag::new("my_flag")?)?
+    ///                 .then(|request| {
+    ///                     // Do something...
+    ///                 })
+    ///         )?;
+    ///     let request = cherry.parse_str("my_action --my_flag")?;
+    ///     if request.has_flag("my_flag") {
+    ///         // Do something...
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn has_flag(&self, key: &str) -> bool {
+        self.flags.contains_key(key)
+    }
+
     /// Insert an Argument.
     ///
     /// Insert an Argument into this Request. Arguments are defined on the Action
@@ -2282,6 +2367,90 @@ mod tests {
         let actual = request.get_flag("my_flag");
 
         assert_eq!(expected, actual);
+    }
+
+    /// Request::has_argument must return if the Argument exists.
+    ///
+    /// The has argument method must return true if the Argument exists.
+    #[test]
+    fn request_has_argument() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+        let request = Request::new(&action).insert_argument("value").unwrap();
+        let actual = request.has_argument(0);
+        assert!(actual);
+    }
+
+    /// Request::has_argument must return if the Argument does not exist.
+    ///
+    /// The has argument method must return false if the Argument does not exist.
+    #[test]
+    fn request_has_argument_false() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+        let request = Request::new(&action).insert_argument("value").unwrap();
+        let actual = request.has_argument(1);
+        assert!(!actual);
+    }
+
+    /// Request::has_field must return if the Field exists.
+    ///
+    /// The has field method must return true if the Field exists.
+    #[test]
+    fn request_has_field() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap();
+        let request = Request::new(&action);
+        let actual = request.has_field("my_field");
+        assert!(actual);
+    }
+
+    /// Request::has_field must return if the Field does not exist.
+    ///
+    /// The has field method must return false if the Field does not exist.
+    #[test]
+    fn request_has_field_false() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap();
+        let request = Request::new(&action);
+        let actual = request.has_field("not_my_field");
+        assert!(!actual);
+    }
+
+    /// Request::has_flag must return if the Flag exists.
+    ///
+    /// The has flag method must return true if the Flag exists.
+    #[test]
+    fn request_has_flag() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap();
+        let request = Request::new(&action);
+        let actual = request.has_flag("my_flag");
+        assert!(actual);
+    }
+
+    /// Request::has_flag must return if the Flag does not exist.
+    ///
+    /// The has flag method must return false if the Flag does not exist.
+    #[test]
+    fn request_has_flag_false() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap();
+        let request = Request::new(&action);
+        let actual = request.has_flag("not_my_flag");
+        assert!(!actual);
     }
 
     /// Request::insert_argument must insert an Argument.
