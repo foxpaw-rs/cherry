@@ -394,10 +394,11 @@ impl<T> Debug for Action<T> {
                     keyword: {:?}, \
                     description: {:?}, \
                     arguments: {:?}, \
+                    fields: {:?}, \
                     flags: {:?}, \
                     then: Some(fn(Request<T>) -> T) \
                 }}",
-                self.keyword, self.description, self.arguments, self.flags
+                self.keyword, self.description, self.arguments, self.fields, self.flags
             ),
             None => write!(
                 f,
@@ -405,10 +406,11 @@ impl<T> Debug for Action<T> {
                     keyword: {:?}, \
                     description: {:?}, \
                     arguments: {:?}, \
+                    fields: {:?}, \
                     flags: {:?}, \
                     then: None \
                 }}",
-                self.keyword, self.description, self.arguments, self.flags
+                self.keyword, self.description, self.arguments, self.fields, self.flags
             ),
         }
     }
@@ -1214,6 +1216,33 @@ impl<'a, T> Request<'a, T> {
         self.arguments.get(index)
     }
 
+    /// Get a Field.
+    ///
+    /// Retrieve a Field value.
+    ///
+    /// # Example
+    /// Todo(Paul): Uncomment once Field parse implemented.
+    /// ```rust
+    /// use cherry::{Action, Cherry, Error, Field};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let cherry = Cherry::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_field(Field::new("my_field")?)?
+    ///                 .then(|request| {
+    ///                     // Do something...
+    ///                 })
+    ///         )?;
+    // ///     let request = cherry.parse_str("my_action --my_field")?;
+    // ///     request.get_field("my_field").ok_or_else(|| Error::new("Missing field 'my_field'."))?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn get_field(&self, key: &str) -> Option<&String> {
+        self.fields.get(key)?.as_ref()
+    }
+
     /// Get a Flag.
     ///
     /// Retrieve a Flag value.
@@ -1275,11 +1304,16 @@ impl<'a, T> Request<'a, T> {
     /// Will error if the Flag is not found in the Action, or if a Field filter
     /// method fails.
     pub(crate) fn insert_field(mut self, field: &str, value: &str) -> error::Result<Self> {
-        let field = self.action.fields.get(field).ok_or_else(|| Error::new("Todo: Help."))?;
+        let field = self
+            .action
+            .fields
+            .get(field)
+            .ok_or_else(|| Error::new("Todo: Help."))?;
         match &field.filter {
             Some(callback) if !callback(value) => Err(Error::new("Todo: Help.")),
             _ => {
-                self.fields.insert(field.title.to_owned(), Some(String::from(value)));
+                self.fields
+                    .insert(field.title.to_owned(), Some(String::from(value)));
                 Ok(self)
             }
         }
@@ -1501,7 +1535,8 @@ mod tests {
     /// short when a Field with that short already exists on the Action.
     #[test]
     fn action_insert_field_collide_field_short() {
-        let expected = Error::new("Action 'my_action' already contains a Field with short tag 'm'.");
+        let expected =
+            Error::new("Action 'my_action' already contains a Field with short tag 'm'.");
         let actual = Action::<()>::new("my_action")
             .unwrap()
             .insert_field(Field::new("my_field").unwrap().short('m'))
@@ -1639,7 +1674,8 @@ mod tests {
     /// short when a Field with that short already exists on the Action.
     #[test]
     fn action_insert_flag_collide_field_short() {
-        let expected = Error::new("Action 'my_action' already contains a Field with short tag 'm'.");
+        let expected =
+            Error::new("Action 'my_action' already contains a Field with short tag 'm'.");
         let actual = Action::<()>::new("my_action")
             .unwrap()
             .insert_field(Field::new("my_field").unwrap().short('m'))
@@ -1739,6 +1775,8 @@ mod tests {
             .description("Action description.")
             .insert_argument(Argument::new("my_argument").unwrap())
             .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap()
             .insert_flag(Flag::new("my_flag").unwrap())
             .unwrap()
             .then(|_| {});
@@ -1752,6 +1790,15 @@ mod tests {
                         filter: None \
                     }\
                 ], \
+                fields: {\
+                    \"my_field\": Field { \
+                        title: \"my_field\", \
+                        description: None, \
+                        short: None, \
+                        default: None, \
+                        filter: None \
+                    }\
+                }, \
                 flags: {\
                     \"my_flag\": Flag { \
                         title: \"my_flag\", \
@@ -1777,6 +1824,7 @@ mod tests {
                 keyword: \"action\", \
                 description: None, \
                 arguments: [], \
+                fields: {}, \
                 flags: {}, \
                 then: None \
             }";
@@ -2108,7 +2156,10 @@ mod tests {
 
         let mut fields = HashMap::new();
         fields.insert(String::from("my_field"), None);
-        fields.insert(String::from("my_field_default"), Some(String::from("default")));
+        fields.insert(
+            String::from("my_field_default"),
+            Some(String::from("default")),
+        );
 
         let mut flags = HashMap::new();
         flags.insert(String::from("my_flag"), false);
@@ -2120,6 +2171,115 @@ mod tests {
             flags,
         };
         let actual = Request::new(&action);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::get_argument must retrieve the Argument.
+    ///
+    /// The get argument method must retrieve the Argument at the index.
+    #[test]
+    fn request_get_argument() {
+        let value = String::from("value");
+        let expected = Some(&value);
+
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_argument(Argument::new("my_argument").unwrap())
+            .unwrap();
+        let request = Request::new(&action).insert_argument("value").unwrap();
+        let actual = request.get_argument(0);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::get_argument must return None if the Field does not exist.
+    ///
+    /// The get argument method must retrieve None if the Argument does not exist.
+    #[test]
+    fn request_get_argument_not_exists() {
+        let expected = None;
+        let action = Action::<()>::new("my_action").unwrap();
+        let request = Request::new(&action);
+        let actual = request.get_argument(0);
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::get_field must retrieve the Field.
+    ///
+    /// The get field method must retrieve the Field at the index.
+    #[test]
+    fn request_get_field() {
+        let value = String::from("value");
+        let expected = Some(&value);
+
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap();
+        let request = Request::new(&action)
+            .insert_field("my_field", "value")
+            .unwrap();
+        let actual = request.get_field("my_field");
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::get_field must return None if the Field does not exist.
+    ///
+    /// The get field method must retrieve None if the Field does not exist.
+    #[test]
+    fn request_get_field_not_exists() {
+        let expected = None;
+        let action = Action::<()>::new("my_action").unwrap();
+        let request = Request::new(&action);
+        let actual = request.get_field("my_field");
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::get_field must return None if the Field value is None.
+    ///
+    /// The get field method must retrieve None if the Field is None.
+    #[test]
+    fn request_get_field_no_value() {
+        let expected = None;
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap())
+            .unwrap();
+        let request = Request::new(&action);
+        let actual = request.get_field("my_field");
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::get_flag must retrieve the Flag.
+    ///
+    /// The get flag method must retrieve the Flag at the index.
+    #[test]
+    fn request_get_flag() {
+        let expected = Some(&true);
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap())
+            .unwrap();
+        let request = Request::new(&action).insert_flag("my_flag").unwrap();
+        let actual = request.get_flag("my_flag");
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Request::get_flag must return None if the Flag does not exist.
+    ///
+    /// The get flag method must retrieve None if the Flag does not exist.
+    #[test]
+    fn request_get_flag_not_exists() {
+        let expected = None;
+        let action = Action::<()>::new("my_action").unwrap();
+        let request = Request::new(&action);
+        let actual = request.get_flag("my_flag");
 
         assert_eq!(expected, actual);
     }
@@ -2218,9 +2378,13 @@ mod tests {
             .unwrap();
 
         let mut expected = Request::new(&action);
-        expected.fields.insert(String::from("my_field"), Some(String::from("value")));
+        expected
+            .fields
+            .insert(String::from("my_field"), Some(String::from("value")));
 
-        let actual = Request::new(&action).insert_field("my_field", "value").unwrap();
+        let actual = Request::new(&action)
+            .insert_field("my_field", "value")
+            .unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -2251,8 +2415,8 @@ mod tests {
             .unwrap()
             .insert_field(
                 Field::new("my_field")
-                .unwrap()
-                .filter(|_| -> bool { false })
+                    .unwrap()
+                    .filter(|_| -> bool { false }),
             )
             .unwrap();
 
