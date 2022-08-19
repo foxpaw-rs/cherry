@@ -1323,7 +1323,7 @@ impl<'a, T> Request<'a, T> {
     /// }
     /// ```
     pub fn has_field(&self, key: &str) -> bool {
-        self.fields.contains_key(key)
+        self.action.fields.contains_key(key)
     }
 
     /// Query if a Flag exists.
@@ -1351,7 +1351,7 @@ impl<'a, T> Request<'a, T> {
     /// }
     /// ```
     pub fn has_flag(&self, key: &str) -> bool {
-        self.flags.contains_key(key)
+        self.action.flags.contains_key(key)
     }
 
     /// Insert an Argument.
@@ -2411,6 +2411,21 @@ mod tests {
         assert!(actual);
     }
 
+    /// Request::has_field must return if the Field exists using the short tag.
+    ///
+    /// The has field method must return true if the Field exists when provieded
+    /// with the short tag.
+    #[test]
+    fn request_has_field_short() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_field(Field::new("my_field").unwrap().short('m'))
+            .unwrap();
+        let request = Request::new(&action);
+        let actual = request.has_field("m");
+        assert!(actual);
+    }
+
     /// Request::has_field must return if the Field does not exist.
     ///
     /// The has field method must return false if the Field does not exist.
@@ -2436,6 +2451,21 @@ mod tests {
             .unwrap();
         let request = Request::new(&action);
         let actual = request.has_flag("my_flag");
+        assert!(actual);
+    }
+
+    /// Request::has_flag must return if the Flag exists using the short tag.
+    ///
+    /// The has flag method must return true if the Flag exists when provieded
+    /// with the short tag.
+    #[test]
+    fn request_has_flag_short() {
+        let action = Action::<()>::new("my_action")
+            .unwrap()
+            .insert_flag(Flag::new("my_flag").unwrap().short('m'))
+            .unwrap();
+        let request = Request::new(&action);
+        let actual = request.has_flag("m");
         assert!(actual);
     }
 

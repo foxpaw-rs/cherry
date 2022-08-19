@@ -193,13 +193,43 @@ impl<T> Cherry<T> {
         let mut request = Request::new(action);
 
         // Obtain Arguments, Fields and Flags.
-        for next in command {
+        while let Some(next) = command.next() {
             let value = next.as_ref();
             request = if let Some(stripped) = value.strip_prefix("--") {
-                request.insert_flag(stripped)
+                if request.has_field(stripped) {
+                    let field_value = &command.next().map_or_else(
+                        || Err(Error::new("Todo: Help.")),
+                        |value| {
+                            let result = value.as_ref().to_owned();
+                            if result.starts_with('-') {
+                                Err(Error::new("Todo: Help."))
+                            } else {
+                                Ok(result)
+                            }
+                        },
+                    )?;
+                    request.insert_field(stripped, field_value)
+                } else {
+                    request.insert_flag(stripped)
+                }
             } else if let Some(stripped) = value.strip_prefix('-') {
-                for character in stripped.chars() {
-                    request = request.insert_flag(character.encode_utf8(&mut [0u8; 4]))?;
+                if stripped.len() == 1 && request.has_field(stripped) {
+                    let field_value = &command.next().map_or_else(
+                        || Err(Error::new("Todo: Help.")),
+                        |value| {
+                            let result = value.as_ref().to_owned();
+                            if result.starts_with('-') {
+                                Err(Error::new("Todo: Help."))
+                            } else {
+                                Ok(result)
+                            }
+                        },
+                    )?;
+                    request = request.insert_field(stripped, field_value)?;
+                } else {
+                    for character in stripped.chars() {
+                        request = request.insert_flag(character.encode_utf8(&mut [0u8; 4]))?;
+                    }
                 }
                 Ok(request)
             } else {
@@ -486,6 +516,104 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
+    /// Cherry::parse must correctly parse Fields.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected Action type, and parse out the Fields.
+    #[test]
+    fn cherry_parse_field() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_field(Field::new("my_field").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap())
+            .insert_field("my_field", "value")
+            .unwrap();
+        let actual = cherry
+            .parse(["my_action", "--my_field", "value"].into_iter())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must correctly parse short Fields.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected Action type, and parse out the Fields when using the short tag.
+    #[test]
+    fn cherry_parse_field_short() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_field(Field::new("my_field").unwrap().short('m'))
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my_action").unwrap())
+            .insert_field("my_field", "value")
+            .unwrap();
+        let actual = cherry
+            .parse(["my_action", "-m", "value"].into_iter())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must error if no Field value supplied.
+    ///
+    /// The parse method error if no Field value to the Action through the input
+    /// ending.
+    #[test]
+    fn cherry_parse_field_no_value_none() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_field(Field::new("my_field").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = cherry
+            .parse(["my_action", "--my_field"].into_iter())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must error if no Field value supplied.
+    ///
+    /// The parse method error if no Field value to the Action through invalid next
+    /// input.
+    #[test]
+    fn cherry_parse_field_no_value_more() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_field(Field::new("my_field").unwrap())
+                    .unwrap()
+                    .insert_field(Field::new("another_field").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = cherry
+            .parse(["my_action", "--my_field", "--another_field"].into_iter())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
     /// Cherry::parse must correctly parse Flags.
     ///
     /// The parse method must correctly parse a Request, linked to the correctly
@@ -559,6 +687,28 @@ mod tests {
             .insert_flag("third")
             .unwrap();
         let actual = cherry.parse(["my_action", "-ac"].into_iter()).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must error if the Flag not found.
+    ///
+    /// The parse method error if the Field key supplied does not exist.
+    #[test]
+    fn cherry_parse_flag_not_found() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my_action")
+                    .unwrap()
+                    .insert_flag(Flag::new("my_flag").unwrap().short('a'))
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = cherry
+            .parse(["my_action", "--not_my_flag"].into_iter())
+            .unwrap_err();
 
         assert_eq!(expected, actual);
     }
