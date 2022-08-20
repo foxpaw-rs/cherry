@@ -46,7 +46,30 @@ use std::rc::Rc;
 /// # Example
 /// ## Create an action
 /// ```rust
-/// // Todo(Paul): When actions have been completed.
+/// use cherry::{Action, Argument, Field, Flag};
+///
+/// fn main() -> cherry::Result<()> {
+///     let action = Action::new("my_action")?
+///         .insert_argument(
+///             Argument::new("my_argument")?
+///                 .description("My argument, must be longer than 3 characters.")
+///                 .filter(|value| -> bool { value.len() > 3 })
+///          )?
+///          .insert_field(
+///             Field::new("my_field")?
+///                 .description("My field.")
+///                 .short('f')
+///                 .default("value")
+///                 .filter(|value| -> bool { value.len() < 3 })
+///          )?
+///         .insert_flag(
+///             Flag::new("my_flag")?
+///                 .description("My flag.")
+///                 .short('m')
+///          )?
+///         .then(|_| println!("Hello World!"));
+///     Ok(())
+/// }
 /// ```
 ///
 /// ## Parent and child actions
@@ -721,31 +744,30 @@ impl PartialOrd for Argument {
 /// parsing of a command, the final value will remain..
 ///
 /// # Example
-/// Todo(Paul): When Fields complete.
-// /// ```rust
-// /// use cherry::{Action, Field, Cherry};
-// ///
-// /// fn main() -> cherry::Result<()> {
-// ///     let cherry = Cherry::new()
-// ///         .insert(
-// ///             Action::new("my_action")?
-// ///                 .insert_flag(
-// ///                     Field::new("username")?
-// ///                         .short('u')
-// ///                         .description("The username, must be longer that 3 characters.")
-// ///                         .default("Admin")
-// ///                         .fiter(|value| -> bool { value.len() > 3 })
-// ///                 )?
-// ///                 .then(|result| -> String {
-// ///                     String::from(result.get_field("username").unwrap_or("")?)
-// ///                 })
-// ///         )?;
-// ///
-// ///      // Will provide the status of the field
-// ///      cherry.parse_str("my_action --username Guest");
-// ///      Ok(())
-// /// }
-// /// ```
+/// ```rust
+/// use cherry::{Action, Field, Cherry};
+///
+/// fn main() -> cherry::Result<()> {
+///     let cherry = Cherry::new()
+///         .insert(
+///             Action::new("my_action")?
+///                 .insert_field(
+///                     Field::new("username")?
+///                         .short('u')
+///                         .description("The username, must be longer that 3 characters.")
+///                         .default("Admin")
+///                         .filter(|value| -> bool { value.len() > 3 })
+///                 )?
+///                 .then(|result| -> String {
+///                     String::from(result.get_field("username").unwrap_or(&String::from("")))
+///                 })
+///         )?;
+///
+///      // Will provide the status of the field
+///      cherry.parse_str("my_action --username Guest");
+///      Ok(())
+/// }
+/// ```
 #[derive(Clone)]
 pub struct Field {
     /// The Field title, the full specifier to utilise this Field.
@@ -1221,7 +1243,6 @@ impl<'a, T> Request<'a, T> {
     /// Retrieve a Field value.
     ///
     /// # Example
-    /// Todo(Paul): Uncomment once Field parse implemented.
     /// ```rust
     /// use cherry::{Action, Cherry, Error, Field};
     ///
@@ -1234,8 +1255,8 @@ impl<'a, T> Request<'a, T> {
     ///                     // Do something...
     ///                 })
     ///         )?;
-    // ///     let request = cherry.parse_str("my_action --my_field")?;
-    // ///     request.get_field("my_field").ok_or_else(|| Error::new("Missing field 'my_field'."))?;
+    ///     let request = cherry.parse_str("my_action --my_field value")?;
+    ///     request.get_field("my_field").ok_or_else(|| Error::new("Missing field 'my_field'."))?;
     ///     Ok(())
     /// }
     /// ```
@@ -1302,7 +1323,6 @@ impl<'a, T> Request<'a, T> {
     /// Query for a Field with the specified key.
     ///
     /// # Example
-    /// Todo(Paul): Uncomment once Field parse implemented.
     /// ```rust
     /// use cherry::{Action, Cherry, Field};
     ///
@@ -1315,10 +1335,10 @@ impl<'a, T> Request<'a, T> {
     ///                     // Do something...
     ///                 })
     ///         )?;
-    // ///     let request = cherry.parse_str("my_action --my_field value")?;
-    // ///     if request.has_field("my_field") {
+    ///     let request = cherry.parse_str("my_action --my_field value")?;
+    ///     if request.has_field("my_field") {
     ///         // Do something...
-    // ///     }
+    ///     }
     ///     Ok(())
     /// }
     /// ```

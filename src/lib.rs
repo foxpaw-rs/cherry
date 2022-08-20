@@ -137,9 +137,8 @@ impl<T> Cherry<T> {
     ///
     /// # Example
     /// ## Arguments, Fields and Flags
-    /// Todo(Paul): Update with Fields when supported.
     /// ```rust
-    /// use cherry::{Action, Argument, Cherry, Flag};
+    /// use cherry::{Action, Argument, Cherry, Field, Flag};
     ///
     /// fn main() -> cherry::Result<()> {
     ///     let mut cherry = Cherry::<()>::new()
@@ -149,6 +148,13 @@ impl<T> Cherry<T> {
     ///                     Argument::new("my_argument")?
     ///                         .description("My argument, must be longer than 3 characters.")
     ///                         .filter(|value| -> bool { value.len() > 3 })
+    ///                  )?
+    ///                  .insert_field(
+    ///                     Field::new("my_field")?
+    ///                         .description("My field.")
+    ///                         .short('f')
+    ///                         .default("value")
+    ///                         .filter(|value| -> bool { value.len() < 3 })
     ///                  )?
     ///                 .insert_flag(
     ///                     Flag::new("my_flag")?
