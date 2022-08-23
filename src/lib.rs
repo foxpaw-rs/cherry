@@ -314,7 +314,7 @@ impl<T> Cherry<T> {
     /// Supports using both single and double quotation marks to capture whitespace
     /// within a value. Also supports escaping both quotation styles, hyphens and
     /// backslashes. Note that the non-enclosing quotation style does not have to
-    /// be escaped.
+    /// be escaped, however, can be.
     ///
     /// # Example
     /// ## Parse from a string
@@ -350,12 +350,12 @@ impl<T> Cherry<T> {
     /// # Error
     /// Will error if the underlying parse method errors.
     pub fn parse_str(&self, command: &str) -> Result<Request<T>> {
-        let chars = command.chars();
+        let mut chars = command.chars();
         let mut parts = Vec::new();
         let mut build = String::new();
         let mut quote = None;
         let mut old_quote = None;
-        for character in chars {
+        while let Some(mut character) = chars.next() {
             if old_quote.is_some() && quote.is_none() && !character.is_whitespace() {
                 return Err(Error::new("Todo: Help."));
             }
@@ -363,6 +363,13 @@ impl<T> Cherry<T> {
             (old_quote, quote) = (
                 quote,
                 match character {
+                    '\\' => {
+                        character = chars.next().ok_or_else(|| Error::new("Todo: Help."))?;
+                        if quote.map_or(false, |value| value != character) {
+                            return Err(Error::new("Todo: Help."));
+                        }
+                        quote
+                    }
                     '"' if quote == Some('"') => None,
                     '"' if quote.is_none() => Some('"'),
                     '\'' if quote == Some('\'') => None,
@@ -842,7 +849,7 @@ mod tests {
 
     /// Cherry::parse_str must correctly parse a Request including quotes.
     ///
-    /// The parse_str method must correctly internal quotes when using quotes.
+    /// The parse_str method must correctly handle internal quotes when using quotes.
     #[test]
     fn cherry_parse_str_internal_quotes() {
         let cherry = Cherry::<()>::new()
@@ -851,7 +858,22 @@ mod tests {
 
         let expected = Request::new(&cherry.actions.get("my 'action'").unwrap());
         let actual = cherry.parse_str("\"my 'action'\"").unwrap();
-     
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse_str must correctly parse a Request including quotes.
+    ///
+    /// The parse_str method must correctly handle internal matching quotes.
+    #[test]
+    fn cherry_parse_str_internal_match_quotes() {
+        let cherry = Cherry::<()>::new()
+            .insert(Action::new("my \"action\"").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my \"action\"").unwrap());
+        let actual = cherry.parse_str("\"my \\\"action\\\"\"").unwrap();
+
         assert_eq!(expected, actual);
     }
 
