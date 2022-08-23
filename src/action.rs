@@ -1547,7 +1547,7 @@ mod tests {
 
     /// Action::insert_argument must insert an Argument.
     ///
-    /// The insert argument method must correctly insert an Argument into the
+    /// The insert_argument method must correctly insert an Argument into the
     /// internal Vec.
     #[test]
     fn action_insert_argument() {
@@ -1567,7 +1567,7 @@ mod tests {
 
     /// Action::insert_argument must error with empty Argument title.
     ///
-    /// The insert argument method must error when attempting to insert an Argument
+    /// The insert_argument method must error when attempting to insert an Argument
     /// with an empty string title.
     #[test]
     fn action_insert_argument_empty() {
@@ -1583,7 +1583,7 @@ mod tests {
 
     /// Action::insert_field must insert a Field.
     ///
-    /// The insert field method must correctly insert a Field into the internal
+    /// The insert_field method must correctly insert a Field into the internal
     /// HashMap.
     #[test]
     fn action_insert_field() {
@@ -1603,7 +1603,7 @@ mod tests {
 
     /// Action::insert_field must error with empty Field title.
     ///
-    /// The insert field method must error when attempting to insert a Field with
+    /// The insert_field method must error when attempting to insert a Field with
     /// an empty string title.
     #[test]
     fn action_insert_field_empty() {
@@ -1619,7 +1619,7 @@ mod tests {
 
     /// Action::insert_field must error on a Field collision.
     ///
-    /// The insert field method must error when attempting to insert a Field when a
+    /// The insert_field method must error when attempting to insert a Field when a
     /// Field with that title already exists on the Action.
     #[test]
     fn action_insert_field_collide_field() {
@@ -1636,7 +1636,7 @@ mod tests {
 
     /// Action::insert_field must error on a Field short collision.
     ///
-    /// The insert field method must error when attempting to insert a Field with a
+    /// The insert_field method must error when attempting to insert a Field with a
     /// short when a Field with that short already exists on the Action.
     #[test]
     fn action_insert_field_collide_field_short() {
@@ -1654,7 +1654,7 @@ mod tests {
 
     /// Action::insert_field must error on a Flag collision.
     ///
-    /// The insert field method must error when attempting to insert a Field when a
+    /// The insert_field method must error when attempting to insert a Field when a
     /// Flag with that title already exists on the Action.
     #[test]
     fn action_insert_field_collide_flag() {
@@ -1671,7 +1671,7 @@ mod tests {
 
     /// Action::insert_field must error on a Flag short collision.
     ///
-    /// The insert field method must error when attempting to insert a Field with a
+    /// The insert_field method must error when attempting to insert a Field with a
     /// short when a Flag with that short already exists on the Action.
     #[test]
     fn action_insert_field_collide_flag_short() {
@@ -1688,7 +1688,7 @@ mod tests {
 
     /// Action::insert_flag must insert a Flag.
     ///
-    /// The insert flag method must correctly insert a Flag into the internal
+    /// The insert_flag method must correctly insert a Flag into the internal
     /// HashMap.
     #[test]
     fn action_insert_flag() {
@@ -1708,7 +1708,7 @@ mod tests {
 
     /// Action::insert_flag must error with empty Flag title.
     ///
-    /// The insert flag method must error when attempting to insert a Flag with an
+    /// The insert_flag method must error when attempting to insert a Flag with an
     /// empty string title.
     #[test]
     fn action_insert_flag_empty() {
@@ -1724,7 +1724,7 @@ mod tests {
 
     /// Action::insert_flag must error on a Flag collision.
     ///
-    /// The insert flag method must error when attempting to insert a Flag when a
+    /// The insert_flag method must error when attempting to insert a Flag when a
     /// Flag with that title already exists on the Action.
     #[test]
     fn action_insert_flag_collide_flag() {
@@ -1741,7 +1741,7 @@ mod tests {
 
     /// Action::insert_flag must error on a Flag short collision.
     ///
-    /// The insert flag method must error when attempting to insert a Flag with a
+    /// The insert_flag method must error when attempting to insert a Flag with a
     /// short when a Flag with that short already exists on the Action.
     #[test]
     fn action_insert_flag_collide_flag_short() {
@@ -1758,7 +1758,7 @@ mod tests {
 
     /// Action::insert_flag must error on a Field collision.
     ///
-    /// The insert flag method must error when attempting to insert a Flag when a
+    /// The insert_flag method must error when attempting to insert a Flag when a
     /// Field with that title already exists on the Action.
     #[test]
     fn action_insert_flag_collide_field() {
@@ -1775,7 +1775,7 @@ mod tests {
 
     /// Action::insert_flag must error on a Field short collision.
     ///
-    /// The insert flag method must error when attempting to insert a Flag with a
+    /// The insert_flag method must error when attempting to insert a Flag with a
     /// short when a Field with that short already exists on the Action.
     #[test]
     fn action_insert_flag_collide_field_short() {
@@ -2505,7 +2505,7 @@ mod tests {
 
     /// Request::insert_argument must insert an Argument.
     ///
-    /// The insert argument method must insert an Argument into the Request.
+    /// The insert_argument method must insert an Argument into the Request.
     #[test]
     fn request_insert_argument() {
         let action = Action::<()>::new("my_action")
@@ -2523,7 +2523,7 @@ mod tests {
 
     /// Request::insert_argument must insert if the filter is passed.
     ///
-    /// The insert argument method must insert an Argument into the Request if the
+    /// The insert_argument method must insert an Argument into the Request if the
     /// filter callback passess successfully.
     #[test]
     fn request_insert_argument_filter_pass() {
@@ -2546,7 +2546,7 @@ mod tests {
 
     /// Request::insert_argument must error if the filter fails.
     ///
-    /// The insert argument method must return an Error if the filter callback
+    /// The insert_argument method must return an Error if the filter callback
     /// fails.
     #[test]
     fn request_insert_argument_filter_fail() {
@@ -2567,7 +2567,7 @@ mod tests {
 
     /// Request::insert_argument must error if trying to insert too many Arguments.
     ///
-    /// The insert argument method must return an Error if attempting to insert too
+    /// The insert_argument method must return an Error if attempting to insert too
     /// many Arguments for the Action.
     #[test]
     fn request_insert_argument_overflow() {
@@ -2588,7 +2588,7 @@ mod tests {
 
     /// Request::insert_field must insert a Field.
     ///
-    /// The insert field method must insert a Field into the Request.
+    /// The insert_field method must insert a Field into the Request.
     #[test]
     fn request_insert_field() {
         let action = Action::<()>::new("my_action")
@@ -2610,7 +2610,7 @@ mod tests {
 
     /// Request::insert_field must error if Field is not found.
     ///
-    /// The insert field method must error if the Field does not exist on the Action.
+    /// The insert_field method must error if the Field does not exist on the Action.
     #[test]
     fn request_insert_field_not_found() {
         let action = Action::<()>::new("my_action")
@@ -2627,7 +2627,7 @@ mod tests {
 
     /// Request::insert_field must error if Field filter fails.
     ///
-    /// The insert field method must error if the Field's valdiation filter fails.
+    /// The insert_field method must error if the Field's valdiation filter fails.
     #[test]
     fn request_insert_field_fail_filter() {
         let action = Action::<()>::new("my_action")
@@ -2648,7 +2648,7 @@ mod tests {
 
     /// Request::insert_flag must insert a Flag.
     ///
-    /// The insert flag method must insert a Flag into the Request.
+    /// The insert_flag method must insert a Flag into the Request.
     #[test]
     fn request_insert_flag() {
         let action = Action::<()>::new("my_action")
@@ -2666,7 +2666,7 @@ mod tests {
 
     /// Request::insert_flag must error if Flag is not found.
     ///
-    /// The insert flag method must error if the Flag does not exist on the Action.
+    /// The insert_flag method must error if the Flag does not exist on the Action.
     #[test]
     fn request_insert_flag_not_found() {
         let action = Action::<()>::new("my_action")

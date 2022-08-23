@@ -311,7 +311,13 @@ impl<T> Cherry<T> {
     /// Simply passes through to the parse method. Commonly used in a CLI
     /// application with user input from stdio.
     ///
+    /// Supports using both single and double quotation marks to capture whitespace
+    /// within a value. Also supports escaping both quotation styles, hyphens and
+    /// backslashes. Note that the non-enclosing quotation style does not have to
+    /// be escaped.
+    ///
     /// # Example
+    /// ## Parse from a string
     /// ```rust
     /// use cherry::{Action, Cherry};
     ///
@@ -325,10 +331,62 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
+    /// ## Using escapes
+    /// ```rust
+    /// use cherry::{Action, Argument, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::<()>::new()
+    ///         .insert(
+    ///             Action::new("my_action")?
+    ///                 .insert_argument(Argument::new("one")?)?
+    ///         )?;
+    ///
+    ///     let request = cherry.parse_str("my_action 'some value'")?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
     /// # Error
     /// Will error if the underlying parse method errors.
     pub fn parse_str(&self, command: &str) -> Result<Request<T>> {
-        self.parse(command.split(' '))
+        let chars = command.chars();
+        let mut parts = Vec::new();
+        let mut build = String::new();
+        let mut quote = None;
+        let mut old_quote = None;
+        for character in chars {
+            if old_quote.is_some() && quote.is_none() && !character.is_whitespace() {
+                return Err(Error::new("Todo: Help."));
+            }
+
+            (old_quote, quote) = (
+                quote,
+                match character {
+                    '"' if quote == Some('"') => None,
+                    '"' if quote.is_none() => Some('"'),
+                    '\'' if quote == Some('\'') => None,
+                    '\'' if quote.is_none() => Some('\''),
+                    _ => quote,
+                },
+            );
+
+            if old_quote != quote || quote.is_none() && character.is_whitespace() {
+                if !build.is_empty() {
+                    parts.push(build);
+                    build = String::new();
+                }
+                continue;
+            }
+
+            build.push(character);
+        }
+
+        if !build.is_empty() {
+            parts.push(build);
+        }
+
+        self.parse(parts.into_iter())
     }
 }
 
@@ -767,6 +825,36 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
+    /// Cherry::parse_str must correctly parse a Request including quotes.
+    ///
+    /// The parse_str method must correctly handle whtespace when using quotes.
+    #[test]
+    fn cherry_parse_str_quoted() {
+        let cherry = Cherry::<()>::new()
+            .insert(Action::new("my action").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my action").unwrap());
+        let actual = cherry.parse_str("'my action'").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse_str must correctly parse a Request including quotes.
+    ///
+    /// The parse_str method must correctly internal quotes when using quotes.
+    #[test]
+    fn cherry_parse_str_internal_quotes() {
+        let cherry = Cherry::<()>::new()
+            .insert(Action::new("my 'action'").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("my 'action'").unwrap());
+        let actual = cherry.parse_str("\"my 'action'\"").unwrap();
+     
+        assert_eq!(expected, actual);
+    }
+
     /// Cherry::parse_str must error when no command.
     ///
     /// The parse_str method must error when no command is provided when parsing the
@@ -779,6 +867,27 @@ mod tests {
             .unwrap()
             .parse_str("")
             .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry parse_str must error when invalid quotes used.
+    ///
+    /// The parse_str method must error when the quoted value is not surrounded by
+    /// whitespace characters, as the command passed is whitespace delimited.
+    #[test]
+    fn cherry_parse_str_invalid_quotes() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("my action")
+                    .unwrap()
+                    .insert_argument(Argument::new("argument").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Error::new("Todo: Help.");
+        let actual = cherry.parse_str("'my action'value").unwrap_err();
 
         assert_eq!(expected, actual);
     }
