@@ -78,6 +78,17 @@ impl<T> Cherry<T> {
         }
     }
 
+    /// Escape the value.
+    ///
+    /// Handle special characters on the provided value.
+    fn escape(&self, value: &str) -> String {
+        value
+            .replace("\\'", "'")
+            .replace("\\\"", "\"")
+            .replace("\\-", "-")
+            .replace("\\\\", "\\")
+    }
+
     /// Insert onto the Cherry object.
     ///
     /// Insert an Action onto the Cherry object.
@@ -114,9 +125,10 @@ impl<T> Cherry<T> {
 
     /// Load the command into Cherry.
     ///
-    /// The parse command takes an Iterator of String types. This is parsed into the
-    /// Cherry object, and returns an Action if the command matches an Action
-    /// keyword or an Error if not. Most commonly used with environment args.
+    /// The parse command takes an Iterator of String types. This is parsed into
+    /// the Cherry object, and returns an Action if the command matches an Action
+    /// keyword or an Error if not. Supports backslash escapes for quotes, hyphens
+    /// and backslashes
     ///
     /// # Example
     /// ## Load a command
@@ -135,7 +147,6 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
-    /// # Example
     /// ## Arguments, Fields and Flags
     /// ```rust
     /// use cherry::{Action, Argument, Cherry, Field, Flag};
@@ -172,6 +183,22 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
+    /// ## Escaping Special Characters
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::<()>::new()
+    ///         .insert(Action::new("my_action \'\"-\\")?)?;
+    ///
+    ///     // Usually, obtain arguments either from the environment or stdio.
+    ///     let args = ["my_action \'\"-\\"].into_iter();
+    ///     let request = cherry.parse(args)?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
     /// # Error
     /// Will error if:
     ///
@@ -180,6 +207,7 @@ impl<T> Cherry<T> {
     /// * Unknown option or flag.
     /// * Not providing a Field value.
     /// * Validation rule failure.
+    /// * Invalid escape sequence, e.g. not `\\`, `\'`, `\"` or `\-`.
     ///
     /// Upon erroring while parsing, the most relevant help text will be returned.
     /// In the event of a unknown keyword, the help text for the parent will be
@@ -191,16 +219,21 @@ impl<T> Cherry<T> {
         D: AsRef<str> + Eq + Hash,
     {
         // Select the Action.
-        let keyword = command.next().ok_or_else(|| Error::new("Todo: Help."))?;
+        let keyword = self.escape(
+            command
+                .next()
+                .ok_or_else(|| Error::new("Todo: Help."))?
+                .as_ref(),
+        );
         let action = self
             .actions
-            .get(keyword.as_ref())
+            .get(&keyword)
             .ok_or_else(|| Error::new("Todo: Help."))?;
         let mut request = Request::new(action);
 
         // Obtain Arguments, Fields and Flags.
         while let Some(next) = command.next() {
-            let value = next.as_ref();
+            let value = self.escape(next.as_ref());
             request = if let Some(stripped) = value.strip_prefix("--") {
                 if request.has_field(stripped) {
                     let field_value = &command.next().map_or_else(
@@ -239,7 +272,7 @@ impl<T> Cherry<T> {
                 }
                 Ok(request)
             } else {
-                request.insert_argument(value)
+                request.insert_argument(&value)
             }?
         }
 
@@ -257,6 +290,7 @@ impl<T> Cherry<T> {
     /// for processing.
     ///
     /// # Example
+    /// ## Parsing From Args
     /// ```rust
     /// use cherry::{Action, Cherry};
     /// use std::env;
@@ -269,6 +303,24 @@ impl<T> Cherry<T> {
     ///     let request = cherry.parse_args(env::args())?;
     ///     # Ok(())
     ///     # };
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// ## Escaping Special Characters
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    /// use std::env;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::<()>::new()
+    ///         .insert(Action::new("my_action \'\"-\\")?)?;
+    ///
+    ///     # | | -> cherry::Result<()> {
+    ///     let request = cherry.parse_args(env::args())?;
+    ///     # Ok(())
+    ///     # };
+    ///
     ///     Ok(())
     /// }
     /// ```
@@ -286,6 +338,7 @@ impl<T> Cherry<T> {
     /// Simply passes through to the parse method.
     ///
     /// # Example
+    /// ## Loading from a slice
     /// ```rust
     /// use cherry::{Action, Cherry};
     ///
@@ -294,6 +347,21 @@ impl<T> Cherry<T> {
     ///         .insert(Action::new("my_action")?)?;
     ///
     ///     let request = cherry.parse_slice(&["my_action"])?;
+    ///
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// ## Escaping Special Characters
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::<()>::new()
+    ///         .insert(Action::new("my_action \'\"-\\")?)?;
+    ///
+    ///     // Usually, obtain arguments either from the environment or stdio.
+    ///     let request = cherry.parse_slice(&["my_action \'\"-\\"])?;
     ///
     ///     Ok(())
     /// }
@@ -331,7 +399,7 @@ impl<T> Cherry<T> {
     /// }
     /// ```
     ///
-    /// ## Using escapes
+    /// ## Using quotes
     /// ```rust
     /// use cherry::{Action, Argument, Cherry};
     ///
@@ -347,6 +415,19 @@ impl<T> Cherry<T> {
     ///     Ok(())
     /// }
     /// ```
+    ///
+    /// ## Escaping Special Characters
+    /// ```rust
+    /// use cherry::{Action, Cherry};
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let mut cherry = Cherry::<()>::new()
+    ///         .insert(Action::new("my_action \'\"-\\")?)?;
+    ///     let request = cherry.parse_str("\"my_action \\\'\\\"-\\\\")?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
     /// # Error
     /// Will error if the underlying parse method errors.
     pub fn parse_str(&self, command: &str) -> Result<Request<T>> {
@@ -365,9 +446,7 @@ impl<T> Cherry<T> {
                 match character {
                     '\\' => {
                         character = chars.next().ok_or_else(|| Error::new("Todo: Help."))?;
-                        if quote.map_or(false, |value| value != character) {
-                            return Err(Error::new("Todo: Help."));
-                        }
+                        build.push('\\');
                         quote
                     }
                     '"' if quote == Some('"') => None,
@@ -445,7 +524,7 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
-    /// Cherry::parse must correctly parse a Request
+    /// Cherry::parse must correctly parse a Request.
     ///
     /// The parse method must correctly parse a Request, linked to the correctly
     /// selected Action type.
@@ -458,6 +537,24 @@ mod tests {
         let expected = Request::new(&cherry.actions.get("my_action").unwrap());
 
         let actual = cherry.parse(["my_action"].into_iter()).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must correctly parse a Request with escapes.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected Action type, correctly escaping special characters.
+    #[test]
+    fn cherry_parse_escapes() {
+        let cherry = Cherry::<()>::new()
+            .insert(Action::new("action \'\"-\\").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("action \'\"-\\").unwrap());
+        let actual = cherry
+            .parse(["action \\\'\\\"\\-\\\\"].into_iter())
+            .unwrap();
 
         assert_eq!(expected, actual);
     }
@@ -800,6 +897,22 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
+    /// Cherry::parse_slice must correctly parse a Request with escapes.
+    ///
+    /// The parse_slice method must correctly parse a Request, linked to the
+    /// correctly selected Action type, correctly escaping special characters.
+    #[test]
+    fn cherry_parse_slice_escapes() {
+        let cherry = Cherry::<()>::new()
+            .insert(Action::new("action \'\"-\\").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("action \'\"-\\").unwrap());
+        let actual = cherry.parse_slice(&["action \\\'\\\"\\-\\\\"]).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
     /// Cherry::parse_slice must error when no command.
     ///
     /// The parse_slice method must error when no command is provided when parsing
@@ -873,6 +986,22 @@ mod tests {
 
         let expected = Request::new(&cherry.actions.get("my \"action\"").unwrap());
         let actual = cherry.parse_str("\"my \\\"action\\\"\"").unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse_str must correctly parse a Request with escapes.
+    ///
+    /// The parse_str method must correctly parse a Request, linked to the
+    /// correctly selected Action type, correctly escaping special characters.
+    #[test]
+    fn cherry_parse_str_escapes() {
+        let cherry = Cherry::<()>::new()
+            .insert(Action::new("action \'\"-\\").unwrap())
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("action \'\"-\\").unwrap());
+        let actual = cherry.parse_str("\"action \\\'\\\"\\-\\\\\"").unwrap();
 
         assert_eq!(expected, actual);
     }
