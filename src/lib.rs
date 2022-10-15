@@ -26,6 +26,7 @@
 
 pub mod action;
 pub mod error;
+pub mod validate;
 
 pub use action::{Action, Argument, Field, Flag, Request};
 pub use error::{Error, Result};
