@@ -4,6 +4,32 @@
 //! with the filters on Arguments and Fields. Note that all methods perform
 //! validation against arabic numerals and english alphabet.
 
+/// Determine if the valud is alphanumeric.
+///
+/// Determine whether the provided value contains only alphanumeric characters.
+/// Alphanumeric characters are defined as `[a-zA-Z0-9]+`
+///
+/// # Example
+/// ```
+/// use cherry::validate::is_alphanumeric;
+///
+/// // Alphanumeric
+/// assert!(is_alphanumeric("a"));
+/// assert!(is_alphanumeric("1"));
+/// assert!(is_alphanumeric("A1"));
+///
+/// // Not alphanumeric
+/// assert!(!is_alphanumeric("1.0"));
+/// assert!(!is_alphanumeric("-a"));
+/// assert!(!is_alphanumeric("$"));
+/// ```
+pub fn is_alphanumeric(value: &str) -> bool {
+    value.bytes().all(|byte| match byte {
+        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => true,
+        _ => false,
+    })
+}
+
 /// Determine if the value is an integer.
 ///
 /// Determine whether the provided value represents a valid integer.
@@ -86,6 +112,38 @@ pub fn is_positive(value: &str) -> bool {
 mod tests {
 
     use super::*;
+
+    /// Method is_alphanumeric must pass on alpha tokens.
+    ///
+    /// If provided alpha tokens, is_alphanumeric must return true.
+    #[test]
+    fn is_alphanumeric_alpha() {
+        assert!(is_alphanumeric("abc"));
+    }
+
+    /// Method is_alphanumeric must pass on numeric tokens.
+    ///
+    /// If provided numeric tokens, is_alphanumeric must return true.
+    #[test]
+    fn is_alphanumeric_number() {
+        assert!(is_alphanumeric("123"));
+    }
+
+    /// Method is_alphanumeric must pass on alphanumeric tokens.
+    ///
+    /// If provided alphanumeric tokens, is_alphanumeric must return true.
+    #[test]
+    fn is_alphanumeric_alphanumeric() {
+        assert!(is_alphanumeric("abc123"));
+    }
+
+    /// Method is_alphanumeric must fail on non alphanumeric tokens.
+    ///
+    /// If provided non alphanumeric tokens, is_alphanumeric must return false.
+    #[test]
+    fn is_alphanumeric_fail() {
+        assert!(!is_alphanumeric("1.0"));
+    }
 
     /// Method is_integer must pass on integer.
     ///
