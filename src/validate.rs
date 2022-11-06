@@ -24,10 +24,9 @@
 /// assert!(!is_alphanumeric("$"));
 /// ```
 pub fn is_alphanumeric(value: &str) -> bool {
-    value.bytes().all(|byte| match byte {
-        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => true,
-        _ => false,
-    })
+    value
+        .bytes()
+        .all(|byte| matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9'))
 }
 
 /// Determine if the value is an integer.

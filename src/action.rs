@@ -10,6 +10,16 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::rc::Rc;
 
+/// Filter.
+///
+/// A filter callback type, supports shared filters between types.
+type Filter = Option<Rc<dyn Fn(&str) -> bool>>;
+
+/// Then.
+///
+/// A then callback type, for execution when the housing action is selected.
+type Then<T> = Option<Box<dyn Fn(Request<T>) -> T>>;
+
 /// Action<T>.
 ///
 /// Actions are the customised application specific commands. Actions are
@@ -98,7 +108,7 @@ pub struct Action<T> {
     flags: HashMap<String, Flag>,
 
     /// The callback method attached to the Action.
-    then: Option<Box<dyn Fn(Request<T>) -> T>>,
+    then: Then<T>,
 }
 
 impl<T> Action<T> {
@@ -542,7 +552,7 @@ pub struct Argument {
     description: Option<String>,
 
     /// The filter to determine if the provided value is valid.
-    filter: Option<Rc<dyn Fn(&str) -> bool>>,
+    filter: Filter,
 }
 
 impl Argument {
@@ -783,7 +793,7 @@ pub struct Field {
     default: Option<String>,
 
     /// The filter to determine if the provided value is valid.
-    filter: Option<Rc<dyn Fn(&str) -> bool>>,
+    filter: Filter,
 }
 
 impl Field {
