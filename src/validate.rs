@@ -25,6 +25,23 @@ pub fn is_integer(value: &str) -> bool {
     value.parse::<i32>().is_ok()
 }
 
+/// Determine if a value is a negative number.
+///
+/// Determine whether the provided value is a negative number.
+///
+/// # Example
+/// ```
+/// use cherry::validate::is_negative;
+///
+/// assert!(is_negative("-1.5"));
+///
+/// assert!(!is_negative("1"));
+/// assert!(!is_negative("0"));
+/// ```
+pub fn is_negative(value: &str) -> bool {
+    value.parse::<f32>().map_or(false, |value| value < 0.0)
+}
+
 /// Determine if the value is a number.
 ///
 /// Determine whether the provided value represents a valid number. Valid
@@ -46,6 +63,23 @@ pub fn is_integer(value: &str) -> bool {
 /// ```
 pub fn is_numeric(value: &str) -> bool {
     value.parse::<f32>().is_ok()
+}
+
+/// Determine if a value is a positive number.
+///
+/// Determine whether the provided value is a positive number.
+///
+/// # Example
+/// ```
+/// use cherry::validate::is_positive;
+///
+/// assert!(is_positive("1.5"));
+///
+/// assert!(!is_positive("-1"));
+/// assert!(!is_positive("0"));
+/// ```
+pub fn is_positive(value: &str) -> bool {
+    value.parse::<f32>().map_or(false, |value| value > 0.0)
 }
 
 #[cfg(test)]
@@ -91,6 +125,38 @@ mod tests {
     #[test]
     fn is_integer_non_number() {
         assert!(!is_integer("a"));
+    }
+
+    /// Method is_negative must pass on negative number.
+    ///
+    /// If provided a negative number, is_negative must return true.
+    #[test]
+    fn is_negative_true() {
+        assert!(is_negative("-1.5"));
+    }
+
+    /// Method is_negative must fail on zero.
+    ///
+    /// If provided zero, is_negative must return false.
+    #[test]
+    fn is_negative_zero() {
+        assert!(!is_negative("0"));
+    }
+
+    /// Method is_negative must fail on negative number.
+    ///
+    /// If provided a negative, is_negative must return false.
+    #[test]
+    fn is_negative_negative() {
+        assert!(!(is_negative("1.5")));
+    }
+
+    /// Method is_negative must fail on non_number.
+    ///
+    /// If provided a non number token, is_negative must return false.
+    #[test]
+    fn is_negative_non_number() {
+        assert!(!is_negative("a"));
     }
 
     /// Method is_numeric must pass on number.
@@ -185,5 +251,37 @@ mod tests {
     #[test]
     fn is_numeric_negative_only() {
         assert!(!is_numeric("-"));
+    }
+
+    /// Method is_positive must pass on positive number.
+    ///
+    /// If provided a positive number, is_positive must return true.
+    #[test]
+    fn is_positive_true() {
+        assert!(is_positive("1.5"));
+    }
+
+    /// Method is_positive must fail on zero.
+    ///
+    /// If provided zero, is_positive must return false.
+    #[test]
+    fn is_positive_zero() {
+        assert!(!is_positive("0"));
+    }
+
+    /// Method is_positive must fail on negative number.
+    ///
+    /// If provided a negative, is_positive must return false.
+    #[test]
+    fn is_positive_negative() {
+        assert!(!(is_positive("-1.5")));
+    }
+
+    /// Method is_positive must fail on non_number.
+    ///
+    /// If provided a non number token, is_positive must return false.
+    #[test]
+    fn is_positive_non_number() {
+        assert!(!is_positive("a"));
     }
 }
