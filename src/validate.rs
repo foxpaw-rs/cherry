@@ -4,10 +4,46 @@
 //! with the filters on Arguments and Fields. Note that all methods perform
 //! validation against arabic numerals and english alphabet.
 
+/// Determine if the value is an integer.
+///
+/// Determine whether the provided value represents a valid integer.
+///
+/// # Example
+/// ```
+/// use cherry::validate::is_integer;
+///
+/// // Integers
+/// assert!(is_integer("10"));
+/// assert!(is_integer("-10"));
+/// assert!(is_integer("0"));
+///
+/// // Not integers
+/// assert!(!is_integer("a"));
+/// assert!(!is_integer("10.2"));
+/// ```
+pub fn is_integer(value: &str) -> bool {
+    value.parse::<i32>().is_ok()
+}
+
 /// Determine if the value is a number.
 ///
 /// Determine whether the provided value represents a valid number. Valid
 /// numbers are defined as `-?[0-9]*?\.?[0-9]+`.
+///
+/// # Example
+/// ```
+/// use cherry::validate::is_numeric;
+///
+/// // Numeric
+/// assert!(is_numeric("10.2"));
+/// assert!(is_numeric("10."));
+/// assert!(is_numeric("-.10"));
+///
+/// // Not numeric
+/// assert!(!is_numeric("a"));
+/// assert!(!is_numeric("1a"));
+/// assert!(!is_numeric("-"));
+/// ```
 pub fn is_numeric(value: &str) -> bool {
     value.parse::<f32>().is_ok()
 }
@@ -16,6 +52,46 @@ pub fn is_numeric(value: &str) -> bool {
 mod tests {
 
     use super::*;
+
+    /// Method is_integer must pass on integer.
+    ///
+    /// If provided an integer, is_integer must return true.
+    #[test]
+    fn is_integer_number() {
+        assert!(is_integer("1"));
+    }
+
+    /// Method is_integer must pass on negative integer.
+    ///
+    /// If provided a negative integer, is_integer must return true.
+    #[test]
+    fn is_integer_negative_number() {
+        assert!(is_integer("-1"));
+    }
+
+    /// Method is_integer must pass on zero.
+    ///
+    /// If provided zero, is_integer must return true.
+    #[test]
+    fn is_integer_zero() {
+        assert!(is_integer("0"));
+    }
+
+    /// Method is_integer must fail on float.
+    ///
+    /// If provided a floating point number, is_integer must return false.
+    #[test]
+    fn is_integer_float() {
+        assert!(!is_integer("1.5"));
+    }
+
+    /// Method is_integer must fail on a non number.
+    ///
+    /// If provided a non number token, is_integer must return false.
+    #[test]
+    fn is_integer_non_number() {
+        assert!(!is_integer("a"));
+    }
 
     /// Method is_numeric must pass on number.
     ///
