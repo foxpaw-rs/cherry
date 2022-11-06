@@ -98,6 +98,9 @@ pub struct Action<T> {
     /// The description for this Action.
     description: Option<String>,
 
+    /// The child actions for this Action.
+    children: HashMap<String, Action<T>>,
+
     /// The Arguments this Action accepts.
     arguments: Vec<Argument>,
 
@@ -137,6 +140,7 @@ impl<T> Action<T> {
         Ok(Action {
             keyword: String::from(keyword),
             description: None,
+            children: HashMap::new(),
             arguments: Vec::new(),
             fields: HashMap::new(),
             flags: HashMap::new(),
@@ -163,6 +167,17 @@ impl<T> Action<T> {
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(String::from(description));
         self
+    }
+
+
+    /// Create a collision error.
+    ///
+    /// Create a collision error for use when inserting types onto the Action.
+    fn error_collision(&self, other: &str, object: &str) -> Error {
+        Error::new(&format!(
+            "Action '{}' already contains a {} '{}'.",
+            self.keyword, object, other
+        ))
     }
 
     /// Insert an Argument into the Action.
@@ -192,6 +207,40 @@ impl<T> Action<T> {
         Ok(self)
     }
 
+    /// Insert a child Action into the Action.
+    ///
+    /// Insert a child Action onto the Action object.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cherry::Action;
+    ///
+    /// fn main() -> cherry::Result<()> {
+    ///     let action = Action::<()>::new("my_action")?
+    ///         .insert_child(Action::new("child_one")?)?
+    ///         .insert_child(Action::new("child_two")?)?;
+    ///     Ok(())
+    /// }
+    /// ```
+    ///
+    /// # Error
+    /// Will error if collision occured between children keyword. The child Action
+    /// keywords must be unique for children of this Action. Additionally, will
+    /// error if the child's keyword is empty.
+    pub fn insert_child(mut self, child: Action<T>) -> error::Result<Self> {
+        if child.keyword.is_empty() {
+            return Err(Error::new("Action must have a non-empty keyword."))
+        }
+
+        if self.children.contains_key(&child.keyword) {
+            return Err(self.error_collision(&child.keyword, "Child Action"));
+        }
+        
+        self.children.insert(child.keyword.clone(), child);
+        Ok(self)
+
+    }
+
     /// Insert a Field into the Action.
     ///
     /// Insert a Field onto the Action object.
@@ -217,33 +266,21 @@ impl<T> Action<T> {
         }
 
         if self.fields.contains_key(&field.title) {
-            return Err(Error::new(&format!(
-                "Action '{}' already contains a Field '{}'.",
-                self.keyword, &field.title
-            )));
+            return Err(self.error_collision(&field.title, "Field"));
         }
 
         if self.flags.contains_key(&field.title) {
-            return Err(Error::new(&format!(
-                "Action '{}' already contains a Flag '{}'.",
-                self.keyword, &field.title
-            )));
+            return Err(self.error_collision(&field.title, "Flag"));
         }
 
         if let Some(short) = field.short {
             let value = String::from(short);
             if self.fields.contains_key(&value) {
-                return Err(Error::new(&format!(
-                    "Action '{}' already contains a Field with short tag '{}'.",
-                    self.keyword, &value
-                )));
+                return Err(self.error_collision(&value, "Field with short tag"));
             }
 
             if self.flags.contains_key(&value) {
-                return Err(Error::new(&format!(
-                    "Action '{}' already contains a Flag with short tag '{}'.",
-                    self.keyword, &value
-                )));
+                return Err(self.error_collision(&value, "Flag with short tag"));
             }
         }
 
@@ -279,33 +316,22 @@ impl<T> Action<T> {
         }
 
         if self.flags.contains_key(&flag.title) {
-            return Err(Error::new(&format!(
-                "Action '{}' already contains a Flag '{}'.",
-                self.keyword, &flag.title
-            )));
+            return Err(self.error_collision(&flag.title, "Flag"));
         }
 
         if self.fields.contains_key(&flag.title) {
-            return Err(Error::new(&format!(
-                "Action '{}' already contains a Field '{}'.",
-                self.keyword, &flag.title
-            )));
+            return Err(self.error_collision(&flag.title, "Field"));
         }
 
         if let Some(short) = flag.short {
             let value = String::from(short);
             if self.flags.contains_key(&value) {
-                return Err(Error::new(&format!(
-                    "Action '{}' already contains a Flag with short tag '{}'.",
-                    self.keyword, &value
-                )));
+                return Err(self.error_collision(&value, "Flag with short tag"));
             }
 
             if self.fields.contains_key(&value) {
-                return Err(Error::new(&format!(
-                    "Action '{}' already contains a Field with short tag '{}'.",
-                    self.keyword, &value
-                )));
+                return Err(self.error_collision(&value, "Field with short tag"));
+                
             }
         }
 
@@ -1520,6 +1546,7 @@ mod tests {
         let expected = Action {
             keyword: String::from("my_action"),
             description: None,
+            children: HashMap::new(),
             arguments: Vec::new(),
             fields: HashMap::new(),
             flags: HashMap::new(),
@@ -1589,6 +1616,60 @@ mod tests {
         let actual = action.insert_argument(argument);
 
         assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Action::insert_child must insert a child Action.
+    ///
+    /// The insert_child method must correctly insert a child Action into the
+    /// internal HashMap.
+    #[test]
+    fn action_insert_child() {
+        let mut map = HashMap::new();
+        map.insert(String::from("child"), Action::<()>::new("child").unwrap());
+
+        let mut expected = Action::<()>::new("action").unwrap();
+        expected.children = map;
+
+        let actual = Action::<()>::new("action")
+            .unwrap()
+            .insert_child(Action::new("child").unwrap())
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Action::insert_child must error with an empty keyword child Action.
+    ///
+    /// The insert_child method must error when attempting to insert a child Action
+    /// with an empty keyword.
+    #[test]
+    fn action_insert_child_empty() {
+        let expected = Error::new("Action must have a non-empty keyword.");
+
+        let action = Action::<()>::new("action").unwrap();
+        let mut child = Action::<()>::new("child").unwrap();
+        child.keyword = String::from("");
+        let actual = action.insert_child(child);
+
+        assert_eq!(expected, actual.unwrap_err());
+    }
+
+    /// Action::insert_child must error on child keyword collision.
+    ///
+    /// The insert_child method must erorr when attempting to insert a child Action
+    /// with a keyword collision.
+    #[test]
+    fn action_insert_child_collision() {
+        let expected = Error::new("Action 'action' already contains a Child Action 'child'.");
+
+        let actual = Action::<()>::new("action")
+            .unwrap()
+            .insert_child(Action::new("child").unwrap())
+            .unwrap()
+            .insert_child(Action::new("child").unwrap())
+            .unwrap_err();
+
+        assert_eq!(expected, actual);
     }
 
     /// Action::insert_field must insert a Field.

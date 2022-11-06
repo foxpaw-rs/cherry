@@ -10,7 +10,7 @@
 /// Alphanumeric characters are defined as `[a-zA-Z0-9]+`
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use cherry::validate::is_alphanumeric;
 ///
 /// // Alphanumeric
@@ -34,7 +34,7 @@ pub fn is_alphanumeric(value: &str) -> bool {
 /// Determine whether the provided value represents a valid integer.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use cherry::validate::is_integer;
 ///
 /// // Integers
@@ -55,7 +55,7 @@ pub fn is_integer(value: &str) -> bool {
 /// Determine whether the provided value is a negative number.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use cherry::validate::is_negative;
 ///
 /// assert!(is_negative("-1.5"));
@@ -73,7 +73,7 @@ pub fn is_negative(value: &str) -> bool {
 /// numbers are defined as `-?[0-9]*?\.?[0-9]+`.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use cherry::validate::is_numeric;
 ///
 /// // Numeric
@@ -95,7 +95,7 @@ pub fn is_numeric(value: &str) -> bool {
 /// Determine whether the provided value is a positive number.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use cherry::validate::is_positive;
 ///
 /// assert!(is_positive("1.5"));
