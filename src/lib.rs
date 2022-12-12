@@ -24,8 +24,8 @@
 #![deny(missing_docs)]
 #![deny(clippy::missing_docs_in_private_items)]
 
-pub mod action;
-pub mod error;
+mod action;
+mod error;
 pub mod validate;
 
 pub use action::{Action, Argument, Field, Flag, Request};
@@ -235,46 +235,30 @@ impl<T> Cherry<T> {
         // Obtain Arguments, Fields and Flags.
         while let Some(next) = command.next() {
             let value = self.escape(next.as_ref());
-            request = if let Some(stripped) = value.strip_prefix("--") {
-                if request.has_field(stripped) {
-                    let field_value = &command.next().map_or_else(
-                        || Err(Error::new("Todo: Help.")),
-                        |value| {
-                            let result = value.as_ref().to_owned();
-                            if result.starts_with('-') {
-                                Err(Error::new("Todo: Help."))
-                            } else {
-                                Ok(result)
-                            }
-                        },
-                    )?;
-                    request.insert_field(stripped, field_value)
+
+            request = if let Some(short) = value.strip_prefix('-') {
+                let (stripped, combined_short_flags) = short.strip_prefix('-').map_or_else(
+                    || (short, short.len() > 1),
+                    |long| (long, false)
+                );
+
+                if combined_short_flags {
+                    stripped.bytes().try_fold(
+                        request,
+                        |req, byte| req.insert_flag(&String::from_utf8_lossy(&[byte]))
+                    )?
+                } else if request.has_flag(stripped) {
+                    request.insert_flag(stripped)?
                 } else {
-                    request.insert_flag(stripped)
-                }
-            } else if let Some(stripped) = value.strip_prefix('-') {
-                if stripped.len() == 1 && request.has_field(stripped) {
-                    let field_value = &command.next().map_or_else(
+                    let field_value = command.next().map_or_else(
                         || Err(Error::new("Todo: Help.")),
-                        |value| {
-                            let result = value.as_ref().to_owned();
-                            if result.starts_with('-') {
-                                Err(Error::new("Todo: Help."))
-                            } else {
-                                Ok(result)
-                            }
-                        },
+                        |value| Ok(self.escape(value.as_ref()))
                     )?;
-                    request = request.insert_field(stripped, field_value)?;
-                } else {
-                    for character in stripped.chars() {
-                        request = request.insert_flag(character.encode_utf8(&mut [0u8; 4]))?;
-                    }
+                    request.insert_field(stripped, &field_value)?
                 }
-                Ok(request)
             } else {
-                request.insert_argument(&value)
-            }?
+                request.insert_argument(&value)?
+            };
         }
 
         // Validate the Request.
@@ -753,31 +737,6 @@ mod tests {
         let expected = Error::new("Todo: Help.");
         let actual = cherry
             .parse(["my_action", "--my_field"].into_iter())
-            .unwrap_err();
-
-        assert_eq!(expected, actual);
-    }
-
-    /// Cherry::parse must error if no Field value supplied.
-    ///
-    /// The parse method error if no Field value to the Action through invalid next
-    /// input.
-    #[test]
-    fn cherry_parse_field_no_value_more() {
-        let cherry = Cherry::<()>::new()
-            .insert(
-                Action::new("my_action")
-                    .unwrap()
-                    .insert_field(Field::new("my_field").unwrap())
-                    .unwrap()
-                    .insert_field(Field::new("another_field").unwrap())
-                    .unwrap(),
-            )
-            .unwrap();
-
-        let expected = Error::new("Todo: Help.");
-        let actual = cherry
-            .parse(["my_action", "--my_field", "--another_field"].into_iter())
             .unwrap_err();
 
         assert_eq!(expected, actual);
