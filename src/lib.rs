@@ -18,8 +18,7 @@
 //! ```rust
 //! ```
 //!
-//! For further detailed examples, refer to the documentation which contain
-//! some tutorial applications using Cherry.
+//! For further detailed examples, refer to the documentation.
 
 #![deny(missing_docs)]
 #![deny(clippy::missing_docs_in_private_items)]

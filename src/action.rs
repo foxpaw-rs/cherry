@@ -84,12 +84,67 @@ type Then<T> = Option<Box<dyn Fn(Request<T>) -> T>>;
 ///
 /// ## Parent and child actions
 /// ```rust
-/// // Todo(Paul): When actions have parent-child relationships.
+/// use cherry::{Action, Argument, Field, Flag};
+///
+/// fn main() -> cherry::Result<()> {
+///     let action = Action::new("my_action")?
+///         .insert_child(
+///             Action::new("my_child")?
+///                 .description("Child action for this action.")
+///                 .then(|_| println!("Hello Child World!"))
+///         )?
+///         .insert_argument(
+///             Argument::new("my_argument")?
+///                 .description("My argument, must be longer than 3 characters.")
+///                 .filter(|value| -> bool { value.len() > 3 })
+///          )?
+///          .insert_field(
+///             Field::new("my_field")?
+///                 .description("My field.")
+///                 .short('f')
+///                 .default("value")
+///                 .filter(|value| -> bool { value.len() < 3 })
+///          )?
+///         .insert_flag(
+///             Flag::new("my_flag")?
+///                 .description("My flag.")
+///                 .short('m')
+///          )?
+///         .then(|_| println!("Hello World!"));
+///     Ok(())
+/// }
 /// ```
 ///
 /// ## Abstract parent action
 /// ```rust
-/// // Todo(Paul): When actions have parent-child relationships.
+/// use cherry::{Action, Argument, Field, Flag};
+///
+/// fn main() -> cherry::Result<()> {
+///     let action = Action::new("my_action")?
+///         .insert_child(
+///             Action::new("my_child")?
+///                 .description("Child action for this action.")
+///                 .then(|_| println!("Hello Child World!"))
+///         )?
+///         .insert_argument(
+///             Argument::new("my_argument")?
+///                 .description("My argument, must be longer than 3 characters.")
+///                 .filter(|value| -> bool { value.len() > 3 })
+///          )?
+///          .insert_field(
+///             Field::new("my_field")?
+///                 .description("My field.")
+///                 .short('f')
+///                 .default("value")
+///                 .filter(|value| -> bool { value.len() < 3 })
+///          )?
+///         .insert_flag(
+///             Flag::new("my_flag")?
+///                 .description("My flag.")
+///                 .short('m')
+///          )?;
+///     Ok(())
+/// }
 /// ```
 pub struct Action<T> {
     /// The keyword to invoke this Action.
