@@ -124,7 +124,7 @@ impl<T> Cherry<T> {
         Ok(self)
     }
 
-    /// Load the command into Cherry.
+    /// Parse the provided command.
     ///
     /// The parse command takes an Iterator of String types. This is parsed into
     /// the Cherry object, and returns an Action if the command matches an Action
@@ -226,33 +226,45 @@ impl<T> Cherry<T> {
                 .ok_or_else(|| Error::new("Todo: Help."))?
                 .as_ref(),
         );
-        let action = self
+        let mut action = self
             .actions
             .get(&keyword)
             .ok_or_else(|| Error::new("Todo: Help."))?;
         let mut request = Request::new(action);
+        let mut child_path = true;
 
-        // Obtain Arguments, Fields and Flags.
+        // Parse Child Actions, Arguments, Fields and Flags.
         while let Some(next) = command.next() {
             let value = self.escape(next.as_ref());
 
+            if child_path {
+                let child = action.get_child(&value);
+                match child {
+                    Some(child) => action = child,
+                    None => child_path = false
+                }
+                request = Request::new(action);
+
+                if child_path {
+                    continue;
+                }
+            }
+
             request = if let Some(short) = value.strip_prefix('-') {
-                let (stripped, combined_short_flags) = short.strip_prefix('-').map_or_else(
-                    || (short, short.len() > 1),
-                    |long| (long, false)
-                );
+                let (stripped, combined_short_flags) = short
+                    .strip_prefix('-')
+                    .map_or_else(|| (short, short.len() > 1), |long| (long, false));
 
                 if combined_short_flags {
-                    stripped.bytes().try_fold(
-                        request,
-                        |req, byte| req.insert_flag(&String::from_utf8_lossy(&[byte]))
-                    )?
+                    stripped.bytes().try_fold(request, |r, byte| {
+                        r.insert_flag(&String::from_utf8_lossy(&[byte]))
+                    })?
                 } else if request.has_flag(stripped) {
                     request.insert_flag(stripped)?
                 } else {
                     let field_value = command.next().map_or_else(
                         || Err(Error::new("Todo: Help.")),
-                        |value| Ok(self.escape(value.as_ref()))
+                        |value| Ok(self.escape(value.as_ref())),
                     )?;
                     request.insert_field(stripped, &field_value)?
                 }
@@ -571,6 +583,93 @@ mod tests {
             .unwrap()
             .parse(args.into_iter())
             .unwrap_err();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must correctly parse a child Action.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected child Action.
+    #[test]
+    fn cherry_parse_child_action() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("action")
+                    .unwrap()
+                    .insert_child(Action::new("child").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(
+            cherry
+                .actions
+                .get("action")
+                .unwrap()
+                .get_child("child")
+                .unwrap(),
+        );
+
+        let actual = cherry.parse(["action", "child"].into_iter()).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must correctly parse a missing child Action.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected Action when the child Action is not selected.
+    #[test]
+    fn cherry_parse_child_action_missing() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("action")
+                    .unwrap()
+                    .insert_child(Action::new("child").unwrap())
+                    .unwrap()
+                    .insert_argument(Argument::new("one").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("action").unwrap())
+            .insert_argument("not_child")
+            .unwrap();
+
+        let actual = cherry.parse(["action", "not_child"].into_iter()).unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    /// Cherry::parse must handle a late child Action.
+    ///
+    /// The parse method must correctly parse a Request, linked to the correctly
+    /// selected child Action, and late child Actions will be treated as arguments.
+    #[test]
+    fn cherry_parse_child_action_late() {
+        let cherry = Cherry::<()>::new()
+            .insert(
+                Action::new("action")
+                    .unwrap()
+                    .insert_child(Action::new("child").unwrap())
+                    .unwrap()
+                    .insert_argument(Argument::new("one").unwrap())
+                    .unwrap()
+                    .insert_argument(Argument::new("two").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let expected = Request::new(&cherry.actions.get("action").unwrap())
+            .insert_argument("one")
+            .unwrap()
+            .insert_argument("child")
+            .unwrap();
+
+        let actual = cherry
+            .parse(["action", "one", "child"].into_iter())
+            .unwrap();
 
         assert_eq!(expected, actual);
     }

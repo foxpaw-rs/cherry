@@ -169,7 +169,6 @@ impl<T> Action<T> {
         self
     }
 
-
     /// Create a collision error.
     ///
     /// Create a collision error for use when inserting types onto the Action.
@@ -178,6 +177,13 @@ impl<T> Action<T> {
             "Action '{}' already contains a {} '{}'.",
             self.keyword, object, other
         ))
+    }
+
+    /// Get a child Action.
+    ///
+    /// Retrieve a child action from this action.
+    pub(crate) fn get_child(&self, keyword: &str) -> Option<&Self> {
+        self.children.get(keyword)
     }
 
     /// Insert an Argument into the Action.
@@ -229,16 +235,15 @@ impl<T> Action<T> {
     /// error if the child's keyword is empty.
     pub fn insert_child(mut self, child: Action<T>) -> error::Result<Self> {
         if child.keyword.is_empty() {
-            return Err(Error::new("Action must have a non-empty keyword."))
+            return Err(Error::new("Action must have a non-empty keyword."));
         }
 
         if self.children.contains_key(&child.keyword) {
             return Err(self.error_collision(&child.keyword, "Child Action"));
         }
-        
+
         self.children.insert(child.keyword.clone(), child);
         Ok(self)
-
     }
 
     /// Insert a Field into the Action.
@@ -331,7 +336,6 @@ impl<T> Action<T> {
 
             if self.fields.contains_key(&value) {
                 return Err(self.error_collision(&value, "Field with short tag"));
-                
             }
         }
 
@@ -452,24 +456,36 @@ impl<T> Debug for Action<T> {
                 "Action {{ \
                     keyword: {:?}, \
                     description: {:?}, \
+                    children: {:?}, \
                     arguments: {:?}, \
                     fields: {:?}, \
                     flags: {:?}, \
                     then: Some(fn(Request<T>) -> T) \
                 }}",
-                self.keyword, self.description, self.arguments, self.fields, self.flags
+                self.keyword,
+                self.description,
+                self.children,
+                self.arguments,
+                self.fields,
+                self.flags
             ),
             None => write!(
                 f,
                 "Action {{ \
                     keyword: {:?}, \
                     description: {:?}, \
+                    children: {:?}, \
                     arguments: {:?}, \
                     fields: {:?}, \
                     flags: {:?}, \
                     then: None \
                 }}",
-                self.keyword, self.description, self.arguments, self.fields, self.flags
+                self.keyword,
+                self.description,
+                self.children,
+                self.arguments,
+                self.fields,
+                self.flags
             ),
         }
     }
@@ -1969,6 +1985,8 @@ mod tests {
         let action = Action::new("action")
             .unwrap()
             .description("Action description.")
+            .insert_child(Action::new("my_child").unwrap())
+            .unwrap()
             .insert_argument(Argument::new("my_argument").unwrap())
             .unwrap()
             .insert_field(Field::new("my_field").unwrap())
@@ -1979,6 +1997,17 @@ mod tests {
         let expected = "Action { \
                 keyword: \"action\", \
                 description: Some(\"Action description.\"), \
+                children: {\
+                    \"my_child\": Action { \
+                        keyword: \"my_child\", \
+                        description: None, \
+                        children: {}, \
+                        arguments: [], \
+                        fields: {}, \
+                        flags: {}, \
+                        then: None \
+                    }\
+                }, \
                 arguments: [\
                     Argument { \
                         title: \"my_argument\", \
@@ -2019,6 +2048,7 @@ mod tests {
         let expected = "Action { \
                 keyword: \"action\", \
                 description: None, \
+                children: {}, \
                 arguments: [], \
                 fields: {}, \
                 flags: {}, \
